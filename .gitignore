@@ -57,3 +57,13 @@
 # editors
 .vscode
 .idea
+
+# 3rd party source and building output files
+/3rd_party/redis/pkg
+/3rd_party/redis/prebuilt
+/3rd_party/protobuf/pkg
+/3rd_party/protobuf/prebuilt
+
+# protocol
+/src/server_frame/protocol/**/*.h
+/src/server_frame/protocol/**/*.cc
