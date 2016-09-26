@@ -132,6 +132,19 @@ bool player::is_gm() const {
     return get_platform_info().platform_id() == hello::EN_OS_WINDOWS;
 }
 
+player::ptr_t player::get_global_gm_player() {
+    static ptr_t shared_gm_player;
+    if (shared_gm_player) {
+        return shared_gm_player;
+    }
+
+    shared_gm_player = std::make_shared<player>();
+    shared_gm_player->init("gm://system");// TODO get from configure: LogicConfig::Instance()->GetCfgLogic().m_strDefaultOpenId
+    shared_gm_player->create_init(hello::EN_VERSION_DEFAULT);
+    WLOGINFO("init gm defaule user %s\n", shared_gm_player->get_open_id().c_str());
+    return shared_gm_player;
+}
+
 int player::on_fake_profile() {
     // TODO 假账号的profile
     return 0;

@@ -186,6 +186,8 @@ public:
     // 是否GM操作
     bool is_gm() const;
 
+    static ptr_t get_global_gm_player();
+
     // 关系链
     int on_fake_profile();
 

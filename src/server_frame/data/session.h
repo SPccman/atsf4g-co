@@ -48,7 +48,7 @@ public:
 
     static int32_t broadcast_msg_to_client(uint64_t bus_id, const hello::CSMsg &msg);
 
-    static int32_t broadcast_msg_to_client(const hello::CSMsg &msg);
+    static int32_t broadcast_msg_to_client(uint64_t bus_id, const void *msg_data, size_t msg_size);
 
     struct compare_callback {
         bool operator()(const key_t &l, const key_t &r) const;

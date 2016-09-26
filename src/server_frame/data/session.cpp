@@ -72,12 +72,16 @@ int32_t session::broadcast_msg_to_client(uint64_t bus_id, const hello::CSMsg &ms
         atframe::gateway::proto_base::get_tls_buffer(atframe::gateway::proto_base::tls_buffer_t::EN_TBT_CUSTOM)
     );
     msg.SerializeWithCachedSizesToArray(buf_start);
-    WLOGDEBUG("broadcast msg to client:[0x%llx, 0x%llx] %llu bytes\n%s",
+    WLOGDEBUG("broadcast msg to gateway [0x%llx] %llu bytes\n%s",
         static_cast<unsigned long long>(bus_id),
         static_cast<unsigned long long>(msg_buf_len),
         msg.DebugString().c_str()
     );
 
+    return broadcast_msg_to_client(bus_id, buf_start, msg_buf_len);
+}
+
+int32_t session::broadcast_msg_to_client(uint64_t bus_id, const void *msg_data, size_t msg_size) {
     // TODO broadcast data using dispatcher
     return 0;
 }

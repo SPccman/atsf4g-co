@@ -31,7 +31,7 @@ namespace excel {
 
         bool load_file_data(std::string& write_to, const std::string& file_path);
 
-        int reloadAll();
+        int reload_all();
 
         void add_config_set(config_set_base* config_set);
     private:

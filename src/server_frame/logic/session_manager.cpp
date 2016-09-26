@@ -1,6 +1,9 @@
 #include <log/log_wrapper.h>
+
 #include <proto_base.h>
 #include <time/time_utility.h>
+
+#include <protocol/pbdesc/svr.const.err.pb.h>
 
 #include "session_manager.h"
 #include "player_manager.h"
@@ -51,13 +54,26 @@ session_manager::sess_ptr_t session_manager::create(const session::key_t& key) {
         return sess_ptr_t();
     }
 
-    sess_ptr_t sess = all_sessions_[key] = std::make_shared<session>();
+    sess_ptr_t& sess = all_sessions_[key];
+    bool is_new = !sess;
+    sess = std::make_shared<session>();
     if(!sess) {
         WLOGERROR("malloc failed");
         return sess;
     }
 
     sess->set_key(key);
+
+    if(is_new) {
+        // gateway 统计
+        session_counter_t::iterator iter_counter = session_counter_.find(key.bus_id);
+        if (session_counter_.end() == iter_counter) {
+            WLOGINFO("new gateway registered, bus id: 0x%llx", static_cast<unsigned long long>(key.bus_id));
+            session_counter_[key.bus_id] = 1;
+        } else {
+            ++ iter_counter->second;
+        }
+    }
     return sess;
 }
 
@@ -80,7 +96,26 @@ void session_manager::remove(sess_ptr_t sess, bool kickoff) {
        static_cast<unsigned long long>(key.session_id)
     );
 
-    all_sessions_.erase(key);
+    session_index_t::iterator iter = all_sessions_.find(key);
+    if (all_sessions_.end() != iter) {
+        // gateway 统计
+        do {
+            session_counter_t::iterator iter_counter = session_counter_.find(key.bus_id);
+            if (session_counter_.end() == iter_counter) {
+                WLOGERROR("gateway session removed, but gateway not found, bus id: 0x%llx", static_cast<unsigned long long>(key.bus_id));
+                break;
+            }
+
+            --iter_counter->second;
+            if (iter_counter->second <= 0) {
+                WLOGINFO("gateway unregistered, bus id: 0x%llx", static_cast<unsigned long long>(key.bus_id));
+                session_counter_.erase(iter_counter);
+            }
+        } while(false);
+
+        // 移除session
+        all_sessions_.erase(key);
+    }
 
     // 移除绑定的player
     player::ptr_t u = sess->get_player();
@@ -104,8 +139,49 @@ void session_manager::remove_all() {
     }
 
     all_sessions_.clear();
+    session_counter_.clear();
 }
 
 size_t session_manager::size() const {
     return all_sessions_.size();
+}
+
+int32_t session_manager::broadcast_msg_to_client(const hello::CSMsg &msg) {
+    size_t msg_buf_len =  msg.ByteSize();
+    size_t tls_buf_len = atframe::gateway::proto_base::get_tls_length(atframe::gateway::proto_base::tls_buffer_t::EN_TBT_CUSTOM);
+    if (msg_buf_len > tls_buf_len)
+    {
+        WLOGERROR("broadcast to all gateway failed: require %llu, only have %llu",
+              static_cast<unsigned long long>(msg_buf_len),
+              static_cast<unsigned long long>(tls_buf_len)
+        );
+        return hello::err::EN_SYS_BUFF_EXTEND;
+    }
+
+    ::google::protobuf::uint8* buf_start = reinterpret_cast<::google::protobuf::uint8*> (
+        atframe::gateway::proto_base::get_tls_buffer(atframe::gateway::proto_base::tls_buffer_t::EN_TBT_CUSTOM)
+    );
+    msg.SerializeWithCachedSizesToArray(buf_start);
+    WLOGDEBUG("broadcast msg to all gateway %llu bytes\n%s",
+        static_cast<unsigned long long>(msg_buf_len),
+        msg.DebugString().c_str()
+    );
+
+    int32_t ret = 0;
+    if (all_sessions_.empty()) {
+        return ret;
+    }
+
+    for (session_counter_t::iterator iter = session_counter_.begin(); session_counter_.end() != iter; ++ iter) {
+        uint64_t gateway_id = iter->first;
+        int32_t res = session::broadcast_msg_to_client(gateway_id, buf_start, msg_buf_len);
+        if (res < 0) {
+            ret = res;
+            WLOGERROR("broadcast msg to gateway [0x%llx] failed, res: %d",
+                static_cast<unsigned long long>(gateway_id), res
+            );
+        }
+    }
+
+    return ret;
 }

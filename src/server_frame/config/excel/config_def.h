@@ -11,7 +11,8 @@
 #include <stdint.h>
 #include <type_traits>
 
-#include "config/libresloader/libresloader.h"
+#include "libresloader.h"
+#include "config_set.h"
 
 namespace excel {
 // ============================== 配置包装辅助 ==============================
