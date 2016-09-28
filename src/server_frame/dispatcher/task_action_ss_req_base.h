@@ -14,7 +14,7 @@ public:
     typedef task_action_base base_type;
     typedef base_type::msg_type msg_type;
     typedef msg_type& msg_ref_type;
-    typedef const msg_ref_type msg_cref_type;
+    typedef const msg_type& msg_cref_type;
     typedef msg_type* msg_ptr_type;
 
 protected:
@@ -25,8 +25,8 @@ public:
     using base_type::get_task_id;
     using base_type::set_ret_code;
     using base_type::get_ret_code;
-    using base_type::set_req_code;
-    using base_type::get_req_code;
+    using base_type::set_rsp_code;
+    using base_type::get_rsp_code;
 
 public:
     task_action_ss_req_base();
@@ -42,6 +42,9 @@ public:
 
 protected:
     virtual void send_rsp_msg();
+
+    static int32_t init_msg(msg_ref_type msg, uint64_t dst_pd, int32_t ss_type);
+    static int32_t init_msg(msg_ref_type msg, uint64_t dst_pd, int32_t ss_type, msg_cref_type req_msg);
 
 private:
     std::string player_openid_;

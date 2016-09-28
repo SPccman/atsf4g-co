@@ -2,6 +2,10 @@
 // Created by owt50 on 2016/9/26.
 //
 
+#include <log/log_wrapper.h>
+#include <protocol/pbdesc/svr.const.err.pb.h>
+#include <protocol/pbdesc/svr.container.pb.h>
+
 #include "task_manager.h"
 
 task_manager::task_manager() {
@@ -16,25 +20,25 @@ int task_manager::init() {
     return 0;
 }
 
-int task_manager::start_task(id_t task_id, moyo_no1::message_container& msg) {
+int task_manager::start_task(id_t task_id, hello::message_container& msg) {
     int res = native_mgr_->start(task_id, &msg);
     if (res < 0) {
         WLOGERROR("start task 0x%llx failed.", reinterpret_cast<unsigned long long>(task_id));
 
         // 错误码
-        return moyo_no1::err::EN_SYS_NOTFOUND;
+        return hello::err::EN_SYS_NOTFOUND;
     }
 
     return 0;
 }
 
-int task_manager::resume_task(id_t task_id, moyo_no1::message_container& msg) {
+int task_manager::resume_task(id_t task_id, hello::message_container& msg) {
     int res = native_mgr_->resume(task_id, &msg);
     if (res < 0) {
         WLOGERROR("resume task 0x%llx failed.", reinterpret_cast<unsigned long long>(task_id));
 
         // 错误码
-        return moyo_no1::err::EN_SYS_NOTFOUND;
+        return hello::err::EN_SYS_NOTFOUND;
     }
 
     return 0;
@@ -56,15 +60,21 @@ int task_manager::add_task(const std::shared_ptr<task_t>& task, time_t timeout) 
     if (0 == timeout) {
         // TODO read default timeout from configure
         // res = native_mgr_->add_task(task, timeout, LogicConfig::Instance()->GetCfgLogic().m_iMsgTimeoutSec);
-        res = native_mgr_->add_task(task, timeout, 10);
+        res = native_mgr_->add_task(task, 10, 0);
     } else {
-        res = native_mgr_->add_task(task, timeout);
+        res = native_mgr_->add_task(task, timeout, 0);
     }
 
     if (res < 0) {
         WLOGERROR("add task failed, res: %d", res);
-        return moyo_no1::err::EN_SYS_PARAM;
+        return hello::err::EN_SYS_PARAM;
     }
 
-    return moyo_no1::err::EN_SUCCESS;
+    return hello::err::EN_SUCCESS;
+}
+
+int task_manager::report_create_error(const char* fn_name) {
+    WLOGERROR("[%s] create task failed. current task number=%u", fn_name,
+      static_cast<uint32_t>(native_mgr_->get_task_size()));
+    return hello::err::EN_SYS_MALLOC;
 }

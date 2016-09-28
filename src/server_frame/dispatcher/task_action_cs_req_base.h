@@ -16,8 +16,9 @@ public:
     typedef task_action_base base_type;
     typedef hello::CSMsg msg_type;
     typedef msg_type& msg_ref_type;
-    typedef const msg_ref_type msg_cref_type;
+    typedef const msg_type& msg_cref_type;
     typedef msg_type* msg_ptr_type;
+    typedef const msg_type* msg_cptr_type;
 
 protected:
     using base_type::get_request;
@@ -27,14 +28,14 @@ public:
     using base_type::get_task_id;
     using base_type::set_ret_code;
     using base_type::get_ret_code;
-    using base_type::set_req_code;
-    using base_type::get_req_code;
+    using base_type::set_rsp_code;
+    using base_type::get_rsp_code;
 
 public:
-    task_action_ss_req_base();
-    virtual ~task_action_ss_req_base();
+    task_action_cs_req_base();
+    virtual ~task_action_cs_req_base();
 
-    msg_ptr_type get_cs_request() const;
+    msg_cptr_type get_cs_request() const;
 
     std::pair<uint64_t, uint64_t> get_gateway_info() const;
 
@@ -44,13 +45,12 @@ public:
 
     msg_ref_type add_rsp_msg();
 
-    std::list<msg_type>& get_rsp_list() { return rsp_msgs_; }
-    const std::list<msg_type>& get_rsp_list() const { return rsp_msgs_; }
+    std::list<msg_type>& get_rsp_list();
+    const std::list<msg_type>& get_rsp_list() const;
 protected:
     virtual void send_rsp_msg();
 
 private:
-    std::string player_openid_;
     mutable std::shared_ptr<player> player_inst_;
     std::list<msg_type> rsp_msgs_;
 };

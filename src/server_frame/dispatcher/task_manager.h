@@ -8,6 +8,11 @@
 #pragma once
 
 #include <design_pattern/singleton.h>
+#include <libcotask/task.h>
+#include <libcotask/task_manager.h>
+#include <libcopp/stack/stack_allocator.h>
+
+#include <utility/environment_helper.h>
 
 namespace hello {
     class message_container;
@@ -17,7 +22,7 @@ class task_manager : public ::util::design_pattern::singleton<task_manager> {
 public:
     struct task_macro_coroutine {
         typedef copp::detail::coroutine_context_base coroutine_t;
-        typedef copp::allocator::stack_allocator_posix stack_allocator_t; // TODO 有需要可以换成通过内存池创建栈空间
+        typedef copp::allocator::default_statck_allocator stack_allocator_t; // TODO 有需要可以换成通过内存池创建栈空间
         typedef copp::detail::coroutine_context_container<coroutine_t, stack_allocator_t> coroutine_container_t;
     };
 
@@ -56,9 +61,7 @@ public:
         std::shared_ptr<task_t> res = task_t::create_with<TAction>(get_stack_size(), std::forward<TParams>(args)...);
         if (!res) {
             task_id = 0;
-            WLOGERROR("create task failed. current task number=%u",
-                      static_cast<uint32_t>(native_mgr_->get_task_size()));
-            return moyo_no1::err::EN_SYS_MALLOC;
+            return report_create_error(__FUNCTION__);
         }
 
         task_id = res->get_id();
@@ -77,9 +80,7 @@ public:
         std::shared_ptr<task_t> res = task_t::create_with<TAction>(get_stack_size(), std::forward<TParams>(args)...);
         if (!res) {
             task_id = 0;
-            WLOGERROR("create task failed. current task number=%u",
-                      static_cast<uint32_t>(native_mgr_->get_task_size()));
-            return moyo_no1::err::EN_SYS_MALLOC;
+            return report_create_error(__FUNCTION__);
         }
 
         task_id = res->get_id();
@@ -127,8 +128,10 @@ private:
      */
     int add_task(const std::shared_ptr<task_t> &task, time_t timeout = 0);
 
+    int report_create_error(const char* fn_name);
 private:
-    typedef cotask::task_manager<id_t> mgr_t;
+    typedef UTIL_ENV_AUTO_MAP(id_t, cotask::task_mgr_node<id_t>) native_task_container_t;
+    typedef cotask::task_manager<id_t,  native_task_container_t> mgr_t;
     typedef typename mgr_t::ptr_t mgr_ptr_t;
     mgr_ptr_t native_mgr_;
 };

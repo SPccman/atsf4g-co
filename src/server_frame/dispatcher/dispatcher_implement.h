@@ -43,8 +43,8 @@ public:
     /**
      * @brief 接收消息回调接口，通常会尝试恢复协程任务运行或创建一个协程任务
      * @param msgc 消息数据包装器
-     * @param pMsgBuf 数据地址
-     * @param uMsgSize 数据长度
+     * @param msg_buf 数据地址
+     * @param msg_size 数据长度
      * @return 返回错误码或0
      */
     virtual int32_t on_recv_msg(msg_ptr_t msgc, const void* msg_buf, size_t msg_size);
@@ -52,9 +52,8 @@ public:
     /**
      * @brief 数据解包
      * @param msg_container 填充目标
-     * @param task_id 相关的任务id
-     * @param pMsgBuf 数据地址
-     * @param uMsgSize 数据长度
+     * @param msg_buf 数据地址
+     * @param msg_size 数据长度
      * @return 返回错误码或0
      */
     virtual int32_t unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) = 0;
@@ -69,6 +68,7 @@ public:
     /**
      * @brief 获取任务信息
      * @param msg_container 填充目标
+     * * @param task_id 相关的任务id
      * @return 返回错误码或0
      */
     virtual int create_task(const msg_ptr_t msg_container, task_manager::id_t& task_id);
@@ -88,13 +88,20 @@ public:
     virtual msg_type_t pick_msg_type_id(const msg_ptr_t msg_container) = 0;
 
     /**
+     * @brief 获取消息名称到ID的映射
+     * @param msg_name 消息名称
+     * @return 消息类型ID
+     */
+    virtual msg_type_t msg_name_to_type_id(const std::string& msg_name) = 0;
+
+    /**
      * @brief 注册Action
      * @param msg_name action名称
      * @return 或错误码
      */
     template <typename TAction>
     int register_action(const std::string& msg_name) {
-        return _register_action(msg_name, task_manager::Instance()->MakeTaskCreator<TAction>());
+        return _register_action(msg_name_to_type_id(msg_name), task_manager::me()->make_task_creator<TAction>());
     }
 
     /**

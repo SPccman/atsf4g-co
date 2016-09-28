@@ -21,8 +21,8 @@ public:
     using base_type::get_task_id;
     using base_type::set_ret_code;
     using base_type::get_ret_code;
-    using base_type::set_req_code;
-    using base_type::get_req_code;
+    using base_type::set_rsp_code;
+    using base_type::get_rsp_code;
 
 public:
     task_action_no_req_base();

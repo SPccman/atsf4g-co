@@ -45,6 +45,7 @@ public:
     virtual int on_timeout();
 
     uint64_t get_task_id() const;
+    unsigned long long get_task_id_llu() const;
 
 protected:
     hello::message_container& get_request();

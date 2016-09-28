@@ -9,8 +9,7 @@ namespace atframe {
     namespace component {
         struct ext_service_type {
             enum type {
-                EN_ATST_LOGINSVR = service_type::EN_ATST_CUSTOM_START + 1, // solution services
-                EN_ATST_GAMESVR
+                EN_ATST_SS_MSG = service_type::EN_ATST_CUSTOM_START, // solution services
             };
         };
     }

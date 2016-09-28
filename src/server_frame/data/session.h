@@ -17,6 +17,9 @@ public:
     struct key_t {
         uint64_t bus_id;
         uint64_t session_id;
+
+        key_t();
+        key_t(const std::pair<uint64_t, uint64_t>& p);
     };
 
 public:
