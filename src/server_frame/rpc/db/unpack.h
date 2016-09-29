@@ -9,11 +9,11 @@
 
 #include <vector>
 
-#include <hiredis_happ.h>
-
 namespace hello {
     class message_container;
 }
+
+struct redisReply;
 
 namespace rpc {
     namespace db {

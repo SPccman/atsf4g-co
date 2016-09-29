@@ -10,6 +10,8 @@
 #include <design_pattern/singleton.h>
 #include <ini_loader.h>
 
+#include <protocol/pbdesc/com.const.pb.h>
+
 class logic_config : public util::design_pattern::singleton<logic_config> {
 public:
     struct LC_DBCONN {
@@ -20,8 +22,8 @@ public:
 
     struct LC_DBCONF {
         std::vector<LC_DBCONN> cluster_default;
-        std::vector<LC_DBCONN> single_default;
-        std::string m_strDBScriptFile[moyo_no1::EnDBScriptShaType_ARRAYSIZE];
+        std::vector<LC_DBCONN> raw_default;
+        std::string db_script_file[hello::EnDBScriptShaType_ARRAYSIZE];
         time_t time_retry_sec;
         time_t time_retry_usec;
         time_t timeout;
@@ -33,7 +35,7 @@ public:
         uint32_t zone_step;
 
         time_t server_open_time;
-        std::string server_resource_dir;
+        std::string server_resource_dir; // ../../ for default
         bool server_maintenance_mode;
 
         time_t task_nomsg_timeout;
@@ -97,6 +99,12 @@ public:
 
     const util::config::ini_loader& get_cfg_loader() const;
     util::config::ini_loader& get_cfg_loader();
+
+    inline const LC_LOGIC& get_cfg_logic() const { return cfg_logic_; }
+    inline const LC_DBCONF& get_cfg_db() const { return cfg_db_; }
+
+    inline const LC_LOGINSVR& get_cfg_svr_login() const { return cfg_loginsvr_; }
+    inline const LC_GAMESVR& get_cfg_svr_game() const { return cfg_gamesvr_; }
 
 private:
     void _load_logic(util::config::ini_loader& loader);
