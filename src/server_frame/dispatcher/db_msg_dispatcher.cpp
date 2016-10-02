@@ -9,11 +9,14 @@
 #include <config/compiler_features.h>
 #include <common/string_oprs.h>
 #include <common/file_system.h>
+#include <time/time_utility.h>
+#include <std/foreach.h>
 
 #include <utility/random_engine.h>
 
 #include <hiredis_happ.h>
 #include <hiredis/adapters/libuv.h>
+#include <hiredis/async.h>
 
 #include "db_msg_dispatcher.h"
 #include <config/logic_config.h>
@@ -35,12 +38,6 @@ static void _uv_close_and_free_callback(uv_handle_t* handle) {
 
 #ifdef UTIL_CONFIG_COMPILER_CXX_STATIC_ASSERT
 #include <type_traits>
-#include <stdlib.h>
-#include <malloc.h>
-#include <async.h>
-#include <time/time_utility.h>
-#include <std/foreach.h>
-
 static_assert(std::is_pod<db_async_data_t>::value, "db_async_data_t must be a pod, because it will stored in a buffer and will not call dtor fn");
 #endif
 
@@ -442,9 +439,9 @@ void db_msg_dispatcher::cluster_request_callback(hiredis::happ::cmd_exec* , stru
         // 响应调度器
         req->response = reply;
         hello::message_container msgc;
-        db_msg_dispatcher::me()->on_recv_msg(&msgc, req, sizeof(db_async_data_t));
+        me()->on_recv_msg(&msgc, req, sizeof(db_async_data_t));
 
-        ++ db_msg_dispatcher::me()->tick_msg_count_;
+        ++ me()->tick_msg_count_;
     } while(false);
 }
 
@@ -456,6 +453,11 @@ void db_msg_dispatcher::cluster_on_connect(hiredis::happ::cluster*, hiredis::hap
 }
 
 void db_msg_dispatcher::cluster_on_connected(hiredis::happ::cluster* clu, hiredis::happ::connection* conn, const struct redisAsyncContext*, int status) {
+    if (0 != status || NULL == conn) {
+        WLOGERROR("connect to db host %s failed, status: %d", (NULL == conn? "Unknown": conn->get_key().name.c_str()), status);
+        return;
+    }
+
     WLOGINFO("connect to db host %s success", conn->get_key().name.c_str());
 
     // 注入login脚本和user脚本
@@ -543,7 +545,7 @@ int db_msg_dispatcher::raw_init(const std::vector<logic_config::LC_DBCONN>& conn
         return hello::err::EN_SYS_PARAM;
     }
 
-    std::shared_ptr<hiredis::happ::raw>& conn = db_raw_conns_[index];
+    std::shared_ptr<hiredis::happ::raw>& conn = db_raw_conns_[index - channel_t::RAW_DEFAULT];
     if (conn) {
         conn->reset();
     }
@@ -584,16 +586,126 @@ int db_msg_dispatcher::raw_init(const std::vector<logic_config::LC_DBCONN>& conn
 
     conn->set_cmd_buffer_size(sizeof(db_async_data_t));
 
-    // 启动cluster
+    // 启动raw
     if(conn->start() >= 0) {
         return 0;
     }
 
     return hello::err::EN_SYS_INIT;
 }
-void db_msg_dispatcher::raw_request_callback(struct redisAsyncContext *c, void *r, void *privdata);
-void db_msg_dispatcher::raw_on_connect(hiredis::happ::raw *c, hiredis::happ::connection*);
-void db_msg_dispatcher::raw_on_connected(hiredis::happ::raw *c, hiredis::happ::connection*, const struct redisAsyncContext*, int status);
+void db_msg_dispatcher::raw_request_callback(struct redisAsyncContext *c, void *r, void *privdata) {
+    redisReply* reply = reinterpret_cast<redisReply*>(r);
+    db_async_data_t* req = reinterpret_cast<db_async_data_t*>(privdata);
 
-int db_msg_dispatcher::raw_send_msg(hiredis::happ::raw& raw_conn, uint64_t task_id, uint64_t pd, unpack_fn_t fn, int argc, const char **argv, const size_t *argvlen);
-int db_msg_dispatcher::raw_send_msg(hiredis::happ::raw& raw_conn, uint64_t task_id, uint64_t pd, unpack_fn_t fn, const char *format, va_list ap);
+    // 所有的请求都应该走标准流程，出错了
+    if (NULL == req) {
+        WLOGERROR("all cmd should has a req data");
+        return;
+    }
+
+    do {
+        // 无回包,可能是连接出现问题
+        if (NULL == reply) {
+            if (NULL == c) {
+                WLOGERROR("connect to db failed.");
+            } else if (c->err) {
+                WLOGERROR("db got a error response, %s", c->errstr);
+            }
+
+            break;
+        }
+
+        // 响应调度器
+        req->response = reply;
+        hello::message_container msgc;
+        me()->on_recv_msg(&msgc, req, sizeof(db_async_data_t));
+
+        ++ me()->tick_msg_count_;
+    } while(false);
+}
+
+void db_msg_dispatcher::raw_on_connect(hiredis::happ::raw *c, hiredis::happ::connection* conn) {
+    assert(conn);
+
+    // 加入事件池
+    redisLibuvAttach(conn->get_context(), uv_default_loop());
+}
+
+void db_msg_dispatcher::raw_on_connected(hiredis::happ::raw *raw_conn, hiredis::happ::connection* conn, const struct redisAsyncContext*, int status) {
+    if (0 != status || NULL == conn) {
+        WLOGERROR("connect to db host %s failed, status: %d", (NULL == conn? "Unknown": conn->get_key().name.c_str()), status);
+        return;
+    }
+
+    WLOGINFO("connect to db host %s success", conn->get_key().name.c_str());
+
+    for(int i = channel_t::RAW_DEFAULT; i < channel_t::RAW_BOUND; ++ i) {
+        std::shared_ptr<hiredis::happ::raw>& raw_ptr = me()->db_raw_conns_[i - channel_t::RAW_DEFAULT];
+        if (raw_conn && raw_ptr.get() == raw_conn) {
+            auto& ucbk = me()->user_callback_onconnected_[i];
+            for (auto &cb : ucbk) {
+                if (cb) cb();
+            }
+        }
+    }
+}
+
+int db_msg_dispatcher::raw_send_msg(hiredis::happ::raw& raw_conn, uint64_t task_id, uint64_t pd, unpack_fn_t fn, int argc, const char **argv, const size_t *argvlen) {
+    hiredis::happ::cmd_exec* cmd;
+    if (NULL == fn) {
+        cmd = raw_conn.exec(NULL, NULL, argc, argv, argvlen);
+    } else {
+        // 异步数据
+        db_async_data_t req;
+        req.bus_id = pd;
+        req.task_id = task_id;
+        req.unpack_fn = fn;
+        req.response = NULL;
+
+        // 防止异步调用转同步调用，预先使用栈上的DBAsyncData
+        cmd = raw_conn.exec(raw_request_callback, &req, argc, argv, argvlen);
+
+        // 这里之后异步数据不再保存在栈上，放到cmd里
+        if (NULL != cmd) {
+            memcpy(cmd->buffer(), &req, sizeof(db_async_data_t));
+            cmd->private_data(cmd->buffer());
+        }
+    }
+
+    if(NULL == cmd) {
+        WLOGERROR("send db msg failed");
+        return hello::err::EN_DB_SEND_FAILED;
+    }
+
+    return  hello::err::EN_SUCCESS;
+}
+
+int db_msg_dispatcher::raw_send_msg(hiredis::happ::raw& raw_conn, uint64_t task_id, uint64_t pd, unpack_fn_t fn, const char *format, va_list ap) {
+    hiredis::happ::cmd_exec* cmd;
+    if (NULL == fn) {
+        cmd = raw_conn.exec(NULL, NULL, format, ap);
+    } else {
+        // 异步数据
+        db_async_data_t req;
+        req.bus_id = pd;
+        req.task_id = task_id;
+        req.unpack_fn = fn;
+        req.response = NULL;
+
+        // 防止异步调用转同步调用，预先使用栈上的DBAsyncData
+        cmd = raw_conn.exec(raw_request_callback, &req, format, ap);
+
+        // 这里之后异步数据不再保存在栈上，放到cmd里
+        if (NULL != cmd) {
+            memcpy(cmd->buffer(), &req, sizeof(db_async_data_t));
+            cmd->private_data(cmd->buffer());
+        }
+    }
+
+    if(NULL == cmd) {
+        WLOGERROR("send db msg failed");
+        return hello::err::EN_DB_SEND_FAILED;
+    }
+
+    return  hello::err::EN_SUCCESS;
+}
