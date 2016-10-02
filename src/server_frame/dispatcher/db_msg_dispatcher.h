@@ -16,7 +16,7 @@
 
 #include <uv.h>
 #include <rpc/db/unpack.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 #include <config/logic_config.h>
 
 struct redisAsyncContext;

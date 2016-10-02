@@ -13,7 +13,7 @@
 #include <utility/random_engine.h>
 
 #include <hiredis_happ.h>
-#include <adapters/libuv.h>
+#include <hiredis/adapters/libuv.h>
 
 #include "db_msg_dispatcher.h"
 #include <config/logic_config.h>
