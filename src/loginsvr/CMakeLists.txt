@@ -24,7 +24,7 @@ if (MINGW)
 endif()
 
 # these service will use atgateway protocol
-include_directories(${ATFRAMEWORK_SERVICE_GATEWAY_PROTOCOL_DIR})
+include_directories(${ATFRAMEWORK_SERVICE_GATEWAY_PROTOCOL_DIR} ${PROJECT_SERVER_FRAME_INC_DIR})
 
 add_executable(${SERVER_INST_SRC_BIN_NAME}d ${SERVER_INST_SRC_LIST} ${PROJECT_3RD_PARTY_SRC_LIST})
 target_link_libraries(${SERVER_INST_SRC_BIN_NAME}d

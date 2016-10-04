@@ -12,6 +12,11 @@
 
 #include "dispatcher_implement.h"
 
+namespace atbus {
+    namespace protocol {
+        class msg;
+    }
+}
 
 class cs_msg_dispatcher UTIL_CONFIG_FINAL : public dispatcher_implement, public util::design_pattern::singleton<cs_msg_dispatcher> {
 public:
@@ -58,6 +63,53 @@ public:
      * @return 消息类型ID
      */
     virtual msg_type_t msg_name_to_type_id(const std::string& msg_name) UTIL_CONFIG_OVERRIDE;
+
+    /**
+     * deal with cs message data
+     * @param msg msg information
+     * @param buffer data
+     * @param len data length
+     * @return 0 or error code
+     */
+    int32_t dispatch(const atbus::protocol::msg &msg, const void *buffer, size_t len);
+
+    /**
+     * send kickoff message to atgateway
+     * @param bus_id bus id of atgateway
+     * @param session_id session id
+     * @param reason kickoff reason
+     * @return 0 or error code
+     */
+    int32_t send_kickoff(uint64_t bus_id, uint64_t session_id, int32_t reason);
+
+    /**
+     * send data to client
+     * @param bus_id bus id of atgateway
+     * @param session_id session id
+     * @param buffer data buffer
+     * @param len data length
+     * @return 0 or error code
+     */
+    int32_t send_data(uint64_t bus_id, uint64_t session_id, const void* buffer, size_t len);
+
+    /**
+     * broadcast data to atgateway
+     * @param bus_id bus id of atgateway
+     * @param buffer data buffer
+     * @param len data length
+     * @return 0 or error code
+     */
+    int32_t broadcast_data(uint64_t bus_id, const void* buffer, size_t len);
+
+    /**
+     * broadcast data to multiple clients
+     * @param bus_id bus id of atgateway
+     * @param session_ids session id
+     * @param buffer data buffer
+     * @param len data length
+     * @return 0 or error code
+     */
+    int32_t broadcast_data(uint64_t bus_id, const std::vector<uint64_t>& session_ids, const void* buffer, size_t len);
 };
 
 

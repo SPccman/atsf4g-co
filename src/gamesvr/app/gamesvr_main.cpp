@@ -13,7 +13,48 @@
 
 #include <config/atframe_service_types.h>
 #include <libatgw_server_protocol.h>
+#include <config/extern_service_types.h>
+#include <dispatcher/cs_msg_dispatcher.h>
+#include <dispatcher/ss_msg_dispatcher.h>
+#include <config/logic_config.h>
 
+
+#ifdef _MSC_VER
+
+#define INIT_CALL(MOD_NAME, ...) { \
+    int res = MOD_NAME::me()->init(__VA_ARGS__);\
+    if (res < 0) {\
+        WLOGERROR("initialize %s failed, res: %d", #MOD_NAME, res); \
+        return res; \
+    }\
+}
+
+#define RELOAD_CALL(RET_VAR, MOD_NAME, ...) { \
+    int res = MOD_NAME::me()->reload(__VA_ARGS__);\
+    if (res < 0) {\
+        WLOGERROR("reload %s failed, res: %d", #MOD_NAME, res); \
+        RET_VAR = res; \
+    }\
+}
+
+#else
+#define INIT_CALL(MOD_NAME, args...) { \
+    int res = MOD_NAME::me()->init(args);\
+    if (res < 0) {\
+        WLOGERROR("initialize %s failed, res: %d", #MOD_NAME, res); \
+        return res; \
+    }\
+}
+
+#define RELOAD_CALL(RET_VAR, MOD_NAME, args...) { \
+    int res = MOD_NAME::me()->reload(args);\
+    if (res < 0) {\
+        WLOGERROR("reload %s failed, res: %d", #MOD_NAME, res); \
+        RET_VAR = res; \
+    }\
+}
+
+#endif
 
 struct app_handle_on_msg {
     app_handle_on_msg() {}
@@ -24,54 +65,25 @@ struct app_handle_on_msg {
             return app.get_bus_node()->send_data(msg.head.src_bus_id, msg.head.type, buffer, len);
         }
 
+        int ret = 0;
         switch (msg.head.type) {
         case ::atframe::component::service_type::EN_ATST_GATEWAY: {
-            ::atframe::gw::ss_msg req_msg;
-            msgpack::unpacked result;
-            msgpack::unpack(result, reinterpret_cast<const char *>(buffer), len);
-            msgpack::object obj = result.get();
-            if (obj.is_nil()) {
-                return 0;
-            }
-            obj.convert(req_msg);
-
-            switch (req_msg.head.cmd) {
-            case ATFRAME_GW_CMD_POST: {
-                // keep all data not changed and send back
-                int res = app.get_bus_node()->send_data(msg.body.forward->from, 0, buffer, len);
-                if (res < 0) {
-                    WLOGERROR("send back post data to 0x%llx failed, res: %d", static_cast<unsigned long long>(msg.body.forward->from), res);
-                } else if (NULL != req_msg.body.post) {
-                    WLOGDEBUG("receive msg %s and send back to 0x%llx done",
-                              std::string(reinterpret_cast<const char *>(req_msg.body.post->content.ptr), req_msg.body.post->content.size).c_str(),
-                              static_cast<unsigned long long>(msg.body.forward->from));
-                }
-                break;
-            }
-            case ATFRAME_GW_CMD_SESSION_ADD: {
-                WLOGINFO("create new session 0x%llx, address: %s:%d", static_cast<unsigned long long>(req_msg.head.session_id),
-                         req_msg.body.session->client_ip.c_str(), req_msg.body.session->client_port);
-
-                break;
-            }
-            case ATFRAME_GW_CMD_SESSION_REMOVE: {
-                WLOGINFO("remove session 0x%llx", static_cast<unsigned long long>(req_msg.head.session_id));
-                break;
-            }
-            default:
-                WLOGERROR("receive a unsupport atgateway message of invalid cmd:%d", static_cast<int>(req_msg.head.cmd));
-                break;
-            }
-
+            ret = cs_msg_dispatcher::me()->dispatch(msg, buffer, len);
             break;
         }
 
-        default:
+        case ::atframe::component::ext_service_type::EN_ATST_SS_MSG: {
+            ret = ss_msg_dispatcher::me()->dispatch(msg, buffer, len);
+            break;
+        }
+
+        default: {
             WLOGERROR("receive a message of invalid type:%d", msg.head.type);
             break;
         }
+        }
 
-        return 0;
+        return ret;
     }
 };
 
@@ -90,8 +102,46 @@ static int app_handle_on_disconnected(atapp::app &app, atbus::endpoint &ep, int 
     return 0;
 }
 
+
+class main_service_module : public atapp::module_impl {
+public:
+    virtual int init() {
+        WLOGINFO("============ server initialize ============");
+        INIT_CALL(logic_config, get_app()->get_id());
+        return 0;
+    };
+
+    virtual int reload() {
+        WLOGINFO("============ server reload ============");
+        int ret = 0;
+        util::config::ini_loader &cfg = get_app()->get_configure();
+
+        RELOAD_CALL(ret, logic_config, get_app()->get_configure());
+
+        return ret;
+    }
+
+    virtual int stop() {
+        WLOGINFO("============ server stop ============");
+        return 0;
+    }
+
+    virtual int timeout() {
+        WLOGINFO("============ server timeout ============");
+        return 0;
+    }
+
+    virtual const char *name() const { return "main_service_module"; }
+
+    virtual int tick() {
+        return 0;
+    }
+};
+
 int main(int argc, char *argv[]) {
     atapp::app app;
+
+    app.add_module(std::make_shared<main_service_module>());
 
     // setup message handle
     app.set_evt_on_recv_msg(app_handle_on_msg());

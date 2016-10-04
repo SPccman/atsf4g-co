@@ -14,6 +14,7 @@
 #include <atframe/atapp.h>
 
 #include <config/extern_service_types.h>
+#include <config/atframe_service_types.h>
 
 const const char* ss_msg_dispatcher::name() const UTIL_CONFIG_OVERRIDE {
     return "ss_msg_dispatcher";
@@ -174,4 +175,26 @@ int32_t ss_msg_dispatcher::send_to_proc(uint64_t bus_id, const void* msg_buf, si
     }
 
     return res;
+}
+
+int32_t ss_msg_dispatcher::dispatch(const atbus::protocol::msg &msg, const void *buffer, size_t len) {
+    if (::atframe::component::ext_service_type::EN_ATST_SS_MSG != msg.head.type) {
+        WLOGERROR("message type %d invalid", msg.head.type);
+        return hello::err::EN_SYS_PARAM;
+    }
+
+    if (NULL == msg.body.forward || 0 == msg.head.src_bus_id) {
+        WLOGERROR("receive a message from unknown source");
+        return hello::err::EN_SYS_PARAM;
+    }
+
+    hello::message_container ss_msg;
+    ss_msg.mutable_src_server()->set_bus_id(msg.body.forward->from);
+
+    int32_t ret = on_recv_msg(&ss_msg, buffer, len);
+    if (ret < 0) {
+        WLOGERROR("dispatch ss message from 0x%llx failed, res: %d", static_cast<unsigned long long>(msg.body.forward->from), ret);
+    }
+
+    return ret;
 }

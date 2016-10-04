@@ -2,6 +2,7 @@
 #include <protocol/pbdesc/svr.const.err.pb.h>
 
 #include <proto_base.h>
+#include <dispatcher/cs_msg_dispatcher.h>
 
 #include "session.h"
 #include "player.h"
@@ -55,8 +56,8 @@ int32_t session::send_msg_to_client(hello::CSMsg &msg) {
 }
 
 int32_t session::send_msg_to_client(const void *msg_data, size_t msg_size) {
-    // TODO send data using dispatcher
-    return 0;
+    // send data using dispatcher
+    return cs_msg_dispatcher::me()->send_data(get_key().bus_id, get_key().session_id, msg_data, msg_size);
 }
 
 int32_t session::broadcast_msg_to_client(uint64_t bus_id, const hello::CSMsg &msg) {
@@ -86,8 +87,8 @@ int32_t session::broadcast_msg_to_client(uint64_t bus_id, const hello::CSMsg &ms
 }
 
 int32_t session::broadcast_msg_to_client(uint64_t bus_id, const void *msg_data, size_t msg_size) {
-    // TODO broadcast data using dispatcher
-    return 0;
+    // broadcast data using dispatcher
+    return cs_msg_dispatcher::me()->broadcast_data(bus_id, msg_data, msg_size);
 }
 
 bool session::compare_callback::operator()(const key_t &l, const key_t &r) const {
@@ -98,6 +99,6 @@ bool session::compare_callback::operator()(const key_t &l, const key_t &r) const
 }
 
 int32_t session::send_kickoff(int32_t reason) {
-    // TODO send kickoff using dispatcher
-    return 0;
+    // send kickoff using dispatcher
+    return cs_msg_dispatcher::me()->send_kickoff(get_key().bus_id, get_key().session_id, reason);
 }

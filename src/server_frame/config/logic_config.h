@@ -91,14 +91,11 @@ protected:
     ~logic_config();
 
 public:
-    int init();
+    int init(uint64_t bus_id);
 
-    int reload();
+    int reload(util::config::ini_loader& cfg_set);
 
     uint64_t get_self_bus_id() const;
-
-    const util::config::ini_loader& get_cfg_loader() const;
-    util::config::ini_loader& get_cfg_loader();
 
     inline const LC_LOGIC& get_cfg_logic() const { return cfg_logic_; }
     inline const LC_DBCONF& get_cfg_db() const { return cfg_db_; }
@@ -108,11 +105,9 @@ public:
 
 private:
     void _load_logic(util::config::ini_loader& loader);
-    void _load_limit(util::config::ini_loader& loader);
-    void _load_service(util::config::ini_loader& loader);
 
     void _load_db(util::config::ini_loader& loader);
-    void _load_db_hosts(util::config::ini_loader& loader);
+    void _load_db_hosts(std::vector<LC_DBCONN>& out, const char* group_name, util::config::ini_loader& loader);
 
     void _load_loginsvr(util::config::ini_loader& loader);
     void _load_gamesvr(util::config::ini_loader& loader);

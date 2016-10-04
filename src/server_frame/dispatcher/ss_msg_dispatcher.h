@@ -12,6 +12,12 @@
 
 #include "dispatcher_implement.h"
 
+namespace atbus {
+    namespace protocol {
+        class msg;
+    }
+}
+
 class ss_msg_dispatcher UTIL_CONFIG_FINAL : public dispatcher_implement, public util::design_pattern::singleton<ss_msg_dispatcher> {
 public:
     typedef dispatcher_implement::msg_ptr_t msg_ptr_t;
@@ -58,6 +64,14 @@ public:
      */
     virtual msg_type_t msg_name_to_type_id(const std::string& msg_name) UTIL_CONFIG_OVERRIDE;
 
+    /**
+     * deal with cs message data
+     * @param msg msg information
+     * @param buffer data
+     * @param len data length
+     * @return 0 or error code
+     */
+    int32_t dispatch(const atbus::protocol::msg &msg, const void *buffer, size_t len);
 public:
     int32_t send_to_proc(uint64_t bus_id, msg_ptr_t msg);
     int32_t send_to_proc(uint64_t bus_id, const void* msg_buf, size_t msg_len);
