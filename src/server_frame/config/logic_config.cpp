@@ -5,6 +5,7 @@
 #include <stringstream>
 #include <common/string_oprs.h>
 #include <std/foreach.h>
+#include <time/time_utility.h>
 
 #include "logic_config.h"
 
@@ -42,9 +43,88 @@ uint64_t logic_config::get_self_bus_id() const {
     return bus_id_;
 }
 
-void logic_config::_load_logic(util::config::ini_loader& loader);
+void logic_config::_load_logic(util::config::ini_loader& loader) {
+    cfg_logic_.zone_id = 0;
+    cfg_logic_.zone_step = 256;
+    loader.dump_to("logic.zone.id", cfg_logic_.zone_id);
+    loader.dump_to("logic.zone.step", cfg_logic_.zone_step);
 
-void logic_config::_load_db(util::config::ini_loader& loader);
+    cfg_logic_.server_maintenance_mode = false;
+    cfg_logic_.server_open_time = util::time::time_utility::get_now();
+    cfg_logic_.server_resource_dir = "../../resource";
+
+    loader.dump_to("logic.server.open_service_time", cfg_logic_.server_open_time);
+    loader.dump_to("logic.server.maintenance_mode", cfg_logic_.server_maintenance_mode);
+    loader.dump_to("logic.server.resource.dir", cfg_logic_.server_resource_dir);
+
+    // player
+    cfg_logic_.player_max_online_number = 10000;
+    cfg_logic_.player_default_openid = "gm://system";
+
+    cfg_logic_.player_auto_save_interval = 0;
+    cfg_logic_.player_auto_save_limit = 0;
+
+    cfg_logic_.player_cache_expire_time = 1200; // 20m for expired of cache
+    cfg_logic_.player_cache_max_retry_times = 3; // retry 3 times
+
+    loader.dump_to("logic.player.max_online", cfg_logic_.player_max_online_number);
+    loader.dump_to("logic.player.default_openid", cfg_logic_.player_default_openid);
+    loader.dump_to("logic.player.auto_save.interval", cfg_logic_.player_auto_save_interval);
+    loader.dump_to("logic.player.auto_save.limit", cfg_logic_.player_auto_save_limit);
+    loader.dump_to("logic.player.cache.expire_time", cfg_logic_.player_cache_expire_time);
+    loader.dump_to("logic.player.cache.max_retry_times", cfg_logic_.player_cache_max_retry_times);
+
+    cfg_logic_.session_login_code_protect = 1200; // 20m for expired of bad token protect
+    cfg_logic_.session_login_code_valid_sec = 600; // 10m for expired of token
+    cfg_logic_.session_login_ban_time = 10800; // 3 hours when ban by anti cheating
+    cfg_logic_.session_tick_sec = 60; // session event tick interval(for example: online number)
+    loader.dump_to("logic.session.login_code_protect", cfg_logic_.session_login_code_protect);
+    loader.dump_to("logic.session.login_code_valid_sec", cfg_logic_.session_login_code_valid_sec);
+    loader.dump_to("logic.session.login_ban_time", cfg_logic_.session_login_ban_time);
+    loader.dump_to("logic.session.tick_sec", cfg_logic_.session_tick_sec);
+
+    cfg_logic_.task_stack_size = 1024 * 1024; // 默认1MB
+    cfg_logic_.task_csmsg_timeout = 5; // 5s
+    cfg_logic_.task_nomsg_timeout = 1800; // 1800s for auto task
+    cfg_logic_.task_paymsg_timeout = 300; // 300s for pay task
+    loader.dump_to("logic.task.stack.size", cfg_logic_.task_stack_size);
+    loader.dump_to("logic.task.csmsg.timeout", cfg_logic_.task_csmsg_timeout);
+    loader.dump_to("logic.task.nomsg.timeout", cfg_logic_.task_nomsg_timeout);
+    loader.dump_to("logic.task.paymsg.timeout", cfg_logic_.task_paymsg_timeout);
+
+    cfg_logic_.heartbeat_interval = 120; // 120s for every ping/pong
+    cfg_logic_.heartbeat_tolerance = 20; // 20s for network latency tolerance
+    cfg_logic_.heartbeat_error_times = 4; // how much times of continue error will cause a kickoff
+    cfg_logic_.heartbeat_ban_error_times = 3; // how much times of continue kickoff will ban account
+    cfg_logic_.heartbeat_ban_time_bound = 10800; // 3 hours of ban time
+    loader.dump_to("logic.heartbeat.interval", cfg_logic_.heartbeat_interval);
+    loader.dump_to("logic.heartbeat.tolerance", cfg_logic_.heartbeat_tolerance);
+    loader.dump_to("logic.heartbeat.error_times", cfg_logic_.heartbeat_error_times);
+    loader.dump_to("logic.heartbeat.ban_error_times", cfg_logic_.heartbeat_ban_error_times);
+    loader.dump_to("logic.heartbeat.ban_time_bound", cfg_logic_.heartbeat_ban_time_bound);
+}
+
+void logic_config::_load_db(util::config::ini_loader& loader) {
+    loader.dump_to("db.script.login", cfg_db_.db_script_file[hello::EN_DBSST_LOGIN]);
+    loader.dump_to("db.script.player", cfg_db_.db_script_file[hello::EN_DBSST_PLAYER]);
+
+    cfg_db_.time_retry_sec = 0;
+    cfg_db_.time_retry_usec = 100000;
+    cfg_db_.timeout = 75;
+    cfg_db_.proc = 100;
+
+    loader.dump_to("db.time.retry.sec", cfg_db_.time_retry_sec);
+    loader.dump_to("db.time.retry.usec", cfg_db_.time_retry_usec);
+    loader.dump_to("db.time.timeout", cfg_db_.timeout);
+    loader.dump_to("db.time.proc", cfg_db_.proc);
+
+    cfg_db_.cluster_default.clear();
+    _load_db_hosts(cfg_db_.cluster_default, "cluster.default", loader);
+
+    cfg_db_.raw_default.clear();
+    _load_db_hosts(cfg_db_.raw_default, "raw.default", loader);
+}
+
 void logic_config::_load_db_hosts(std::vector<LC_DBCONN>& out, const char* group_name, util::config::ini_loader& loader) {
     std::stringstream ss;
     ss<< "db."<< group_name<< ".host";
@@ -87,5 +167,29 @@ void logic_config::_load_db_hosts(std::vector<LC_DBCONN>& out, const char* group
     }
 }
 
-void logic_config::_load_loginsvr(util::config::ini_loader& loader);
-void logic_config::_load_gamesvr(util::config::ini_loader& loader);
+void logic_config::_load_loginsvr(util::config::ini_loader& loader) {
+    cfg_loginsvr_.version_cfg_file = "../cfg/cfg_version.xml";
+    cfg_loginsvr_.strategy_cfg_file = "../cfg/cfg_strategy.xml";
+    cfg_loginsvr_.reload_version = static_cast<uint32_t>(util::time::time_utility::get_now());
+
+    loader.dump_to("loginsvr.gmsvr.timeout.sec", cfg_loginsvr_.gmsvr_timeout_sec);
+    loader.dump_to("loginsvr.version_conf", cfg_loginsvr_.version_cfg_file, false);
+    loader.dump_to("loginsvr.strategy_conf", cfg_loginsvr_.strategy_cfg_file, false);
+    loader.dump_to("loginsvr.cdn.url", cfg_loginsvr_.cdn_url);
+
+    cfg_loginsvr_.gamesvr_list.clear();
+    loader.dump_to("loginsvr.gamesvr.addr", cfg_loginsvr_.gamesvr_list);
+
+    cfg_loginsvr_.start_time = cfg_loginsvr_.end_time = 0;
+    loader.dump_to("loginsvr.start_time", cfg_loginsvr_.start_time);
+    loader.dump_to("loginsvr.end_time", cfg_loginsvr_.end_time);
+    cfg_loginsvr_.relogin_expired_time = 3600;
+    loader.dump_to("loginsvr.gamesvr.relogin_expire", cfg_loginsvr_.relogin_expired_time);
+
+    cfg_loginsvr_.white_openid_list.clear();
+    cfg_loginsvr_.debug_platform_mode = 0;
+    loader.dump_to("loginsvr.white.openid", cfg_loginsvr_.white_openid_list);
+    loader.dump_to("loginsvr.debug_platform", cfg_loginsvr_.debug_platform_mode);
+}
+
+void logic_config::_load_gamesvr(util::config::ini_loader& loader) {}

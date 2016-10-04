@@ -4,6 +4,8 @@
 
 #include "protocol/pbdesc/svr.const.err.pb.h"
 
+#include <config/logic_config.h>
+
 #include "player_manager.h"
 #include "session_manager.h"
 
@@ -30,8 +32,7 @@ bool player_manager::remove(player_manager::player_ptr_t u, bool force) {
     u->set_removing(true);
 
     // 如果不是强制移除则进入缓存队列即可
-    // TODO 过期时间配置
-    time_t expire_time = 600; //LogicConfig::Instance()->GetCfgLogic().m_iCacheExpireTime;
+    time_t expire_time = logic_config::me()->get_cfg_logic().player_cache_expire_time;
     if (force || expire_time <= 0) {
         do {
             int res = 0;
@@ -95,7 +96,7 @@ int player_manager::save(player_ptr_t u, hello::table_login* login_tb, std::stri
         login_version = &version;
     }
 
-    uint64_t self_bus_id = 0; // TODO read self bus id
+    uint64_t self_bus_id = logic_config::me()->get_self_bus_id();
     // TODO RPC read from DB
     int res = 0; //rpc::db::login::Get(u->GetOpenId().c_str(), *login_tb, *login_version);
     if (res < 0) {
@@ -173,8 +174,7 @@ player_manager::player_cache_t* player_manager::set_offline_cache(player_ptr_t u
         return NULL;
     }
 
-    // TODO get configure from file
-    time_t cache_expire_time = 600;
+    time_t cache_expire_time = logic_config::me()->get_cfg_logic().player_cache_expire_time;
     cache_expire_list_.push_back(player_cache_t());
     player_cache_t& new_cache = cache_expire_list_.back();
     new_cache.failed_times = 0;
@@ -229,7 +229,12 @@ player_manager::player_ptr_t player_manager::create(const std::string& openid) {
         return player_ptr_t();
     }
 
-    // TODO online user number limit
+    // online user number limit
+    if (all_players_.size() > logic_config::me()->get_cfg_logic().player_max_online_number) {
+        WLOGERROR("online number extended");
+        return player_ptr_t();
+    }
+
     player_ptr_t ret = std::make_shared<player>();
     if(!ret) {
         WLOGERROR("malloc player %s failed", openid.c_str());
@@ -367,7 +372,7 @@ void player_manager::update_auto_save(player_ptr_t& user) {
     }
 
     // 没有设置定时保存限制则跳过
-    time_t auto_save_interval = 600;// TODO read from configutr
+    time_t auto_save_interval = logic_config::me()->get_cfg_logic().player_auto_save_interval;
     if (auto_save_interval <= 0) {
         return;
     }

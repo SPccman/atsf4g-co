@@ -8,6 +8,7 @@
 #pragma once
 
 #include <common/string_oprs.h>
+#include <config/logic_config.h>
 
 #define DBGETGLOBALKEY_FMT(table_name) "g:" #table_name ":%s"
 
@@ -15,8 +16,8 @@
 
 #define DBGETTABLEKEY_FMT(table_name) "z-%u:" #table_name ":%s"
 
-// TODO get zone id
-#define DBGETTABLEKEY_ARG(openid) LogicConfig::Instance()->GetCfgLogic().m_iZoneId, openid
+// get zone id
+#define DBGETTABLEKEY_ARG(openid) logic_config::me()->get_cfg_logic().zone_id, openid
 
 #define DBGETZONETABLEKEY_ARG(zone, openid) zone, openid
 
@@ -83,5 +84,43 @@
 
 #define DBPLAYERCMD(cmd, openid, format, args...) DBUSERCMD(player, cmd, openid, format, ##args)
 #define DBPLAYERKEY(keyvar, keylen, v) DBUSERKEY(player, keyvar, keylen, v)
+
+
+namespace rpc {
+    namespace db {
+
+        /**
+         * allocate a buffer in specify buffer block and align address to type Ty
+         * @note it's useful in allocate args when using redis to store data and using reflect to pack message.
+         *       because object's address must be align to type size on x86 or ARM architecture, such as size_t, uint32_t, uint64_t and etc.
+         * @param buf_addr input available buffer block, output left available address
+         * @param buf_len input available buffer length, output left available length
+         * @return allocated buffer address, NULL if failed
+         */
+        template<typename Ty>
+        Ty* align_alloc(void*& buf_addr, size_t& buf_len) {
+            out = NULL;
+            if (NULL == buf_addr) {
+                return NULL;
+            }
+
+            uintptr_t in_addr = (uintptr_t)buf_addr;
+            uintptr_t padding_sz = (size_t)(in_addr % sizeof(Ty));
+            if (0 != padding_sz) {
+                padding_sz = sizeof(Ty) - padding_sz;
+                in_addr += padding_sz;
+            }
+
+            // buffer not enough
+            if (buf_len < sizeof(Ty) + padding_sz) {
+                return NULL;
+            }
+
+            buf_len -= sizeof(Ty) + padding_sz;
+            buf_addr = (void*)(in_addr + sizeof(Ty));
+            return (Ty*)(in_addr);
+        }
+    }
+}
 
 #endif //_RPC_DB_DB_MACROS_H

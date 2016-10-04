@@ -5,23 +5,38 @@
 
 #include <protocol/pbdesc/svr.const.err.pb.h>
 
+#include <config/logic_config.h>
 #include "session_manager.h"
 #include "player_manager.h"
 #include "data/player.h"
+
+session_manager::session_manager(): last_proc_timepoint_(util::time::time_utility::get_now()) {}
+
+session_manager::~session_manager() {}
 
 int session_manager::init() {
     return 0;
 }
 
 int session_manager::proc() {
-    // TODO 写入时间可配,实时在线统计
-    // time_t cur_time = util::time::time_utility::get_now();
-    // cur_time = cur_time - cur_time % util::time::time_utility::MINITE_SECONDS;
-    // static time_t wlog_last_time = cur_time;
-    // if (cur_time > wlog_last_time) {
-    //     wlog_last_time = cur_time;
-    //     // send online stats
-    // }
+    // 写入时间可配,实时在线统计
+    time_t proc_interval = logic_config::me()->get_cfg_logic().session_tick_sec;
+
+    // disabled
+    if (proc_interval <= 0) {
+        return 0;
+    }
+
+    time_t cur_time = util::time::time_utility::get_now();
+    cur_time = cur_time - cur_time % proc_interval;
+     if (cur_time > last_proc_timepoint_) {
+         last_proc_timepoint_ = cur_time;
+         WLOGINFO( "online number: %llu clients on %llu atgateway",
+                   static_cast<unsigned long long>(all_sessions_.size()),
+                   static_cast<unsigned long long>(session_counter_.size())
+         );
+         // TODO send online stats
+     }
 
     return 0;
 }

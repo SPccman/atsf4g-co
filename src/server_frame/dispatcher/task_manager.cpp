@@ -6,6 +6,8 @@
 #include <protocol/pbdesc/svr.const.err.pb.h>
 #include <protocol/pbdesc/svr.container.pb.h>
 
+#include <config/logic_config.h>
+
 #include "task_manager.h"
 
 task_manager::task_manager() {
@@ -50,17 +52,14 @@ int task_manager::tick(time_t sec, int nsec) {
 }
 
 size_t task_manager::get_stack_size() const {
-    return 512 * 1024;
-    // TODO read from configure
-    // return LogicConfig::Instance()->GetCfgLogic().m_iTaskStackSize;
+    return logic_config::me()->get_cfg_logic().task_stack_size;
 }
 
 int task_manager::add_task(const std::shared_ptr<task_t>& task, time_t timeout) {
     int res = 0;
     if (0 == timeout) {
-        // TODO read default timeout from configure
-        // res = native_mgr_->add_task(task, timeout, LogicConfig::Instance()->GetCfgLogic().m_iMsgTimeoutSec);
-        res = native_mgr_->add_task(task, 10, 0);
+        // read default timeout from configure
+        res = native_mgr_->add_task(task, logic_config::me()->get_cfg_logic().task_csmsg_timeout, 0);
     } else {
         res = native_mgr_->add_task(task, timeout, 0);
     }

@@ -5,6 +5,8 @@
 
 #include <logic/player_manager.h>
 #include <time/time_utility.h>
+
+#include <config/logic_config.h>
 #include "player.h"
 #include "session.h"
 
@@ -103,7 +105,11 @@ void player::init_from_table_data(const hello::table_user &tb_player) {
     // }
 
     if (src_tb->has_platform()) {
-        platform_info_.ref().CopyFrom(*src_tb);
+        platform_info_.ref().CopyFrom(src_tb->platform());
+    }
+
+    if(src_tb->has_player()) {
+        player_data_.ref().CopyFrom(src_tb->player());
     }
 
     // TODO all modules load from DB
@@ -139,7 +145,7 @@ player::ptr_t player::get_global_gm_player() {
     }
 
     shared_gm_player = std::make_shared<player>();
-    shared_gm_player->init("gm://system");// TODO get from configure: LogicConfig::Instance()->GetCfgLogic().m_strDefaultOpenId
+    shared_gm_player->init(logic_config::me()->get_cfg_logic().player_default_openid);
     shared_gm_player->create_init(hello::EN_VERSION_DEFAULT);
     WLOGINFO("init gm defaule user %s\n", shared_gm_player->get_open_id().c_str());
     return shared_gm_player;
@@ -204,8 +210,9 @@ bool player::check_logout_cache(uint32_t seq) const {
 }
 
 void player::update_heartbeat() {
-    time_t heartbeat_interval = 60; // TODO get from configure
-    time_t heartbeat_tolerance = 20; // TODO get from configure
+    const logic_config::LC_LOGIC& logic_cfg = logic_config::me()->get_cfg_logic();
+    time_t heartbeat_interval = logic_cfg.heartbeat_interval;
+    time_t heartbeat_tolerance = logic_cfg.heartbeat_tolerance;
     time_t tol_dura = heartbeat_interval - heartbeat_tolerance;
     time_t now_time = util::time::time_utility::get_now();
 
@@ -220,8 +227,7 @@ void player::update_heartbeat() {
     heartbeat_data_.last_recv_time = now_time;
 
     // 顺带更新login_code的有效期
-    // TODO get from configure
-    get_login_info().set_login_code_expired(now_time + 180);
+    get_login_info().set_login_code_expired(now_time + logic_cfg.session_login_code_valid_sec);
 }
 
 void player::send_all_syn_msg() {

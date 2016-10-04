@@ -43,25 +43,26 @@ public:
         time_t task_paymsg_timeout;
         size_t task_stack_size;
 
-        uint32_t player_max_online_number;
+        size_t player_max_online_number;
         std::string player_default_openid;
         // 定时任务-自动保存间隔
         time_t player_auto_save_interval;
-        time_t player_login_code_protect;
         size_t player_auto_save_limit;
         // 定时任务-缓存有效期
         time_t player_cache_expire_time;
         uint32_t player_cache_max_retry_times;
+
         // 登入码的有效期
-        int player_login_code_valid_sec;
-        time_t player_login_ban_time;
-        time_t player_session_tick_sec;
+        time_t session_login_code_protect;
+        time_t session_login_code_valid_sec;
+        time_t session_login_ban_time;
+        time_t session_tick_sec;
 
         // 心跳
         time_t heartbeat_interval;
         time_t heartbeat_tolerance;
         size_t heartbeat_error_times;
-        uint32_t heartbeat_ban_error_times;
+        size_t heartbeat_ban_error_times;
         time_t heartbeat_ban_time_bound;
     };
 

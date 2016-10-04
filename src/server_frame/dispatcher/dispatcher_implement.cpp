@@ -9,7 +9,9 @@
 
 #define MSG_DISPATCHER_DEBUG_PRINT_BOUND 4096
 
-int dispatcher_implement::init();
+int dispatcher_implement::init() {
+    return 0;
+}
 
 int32_t dispatcher_implement::on_recv_msg(msg_ptr_t msgc, const void* msg_buf, size_t msg_size) {
     if (NULL == msgc) {
@@ -54,7 +56,7 @@ int32_t dispatcher_implement::on_recv_msg(msg_ptr_t msgc, const void* msg_buf, s
     } else if (ret >= 0) {
         int res = create_task(msgc, task_id);
 
-        // TODO dst_id
+        // dst_id
         msgc->mutable_src_server()->set_dst_task_id(task_id);
 
         if(res < 0) {
@@ -68,7 +70,7 @@ int32_t dispatcher_implement::on_recv_msg(msg_ptr_t msgc, const void* msg_buf, s
         }
 
         // 再启动
-        return task_manager::me()->start_task(task_id, msgc);
+        return task_manager::me()->start_task(task_id, *msgc);
     }
 
     return ret;
@@ -79,7 +81,7 @@ uint64_t dispatcher_implement::pick_msg_task(const msg_ptr_t msg_container) {
         return 0;
     }
 
-    return msg_container->src_server().dst_id();
+    return msg_container->src_server().dst_task_id();
 }
 
 int dispatcher_implement::create_task(const msg_ptr_t msg_container, task_manager::id_t& task_id) {

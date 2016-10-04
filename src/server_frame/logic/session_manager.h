@@ -17,6 +17,11 @@ public:
     typedef session::ptr_t sess_ptr_t;
     typedef UTIL_ENV_AUTO_MAP(session::key_t, sess_ptr_t, session::compare_callback) session_index_t;
     typedef std::map<uint64_t, size_t> session_counter_t;
+
+protected:
+    session_manager();
+    ~session_manager();
+
 public:
     int init();
 
@@ -38,6 +43,7 @@ public:
 private:
     session_counter_t session_counter_;
     session_index_t all_sessions_;
+    time_t last_proc_timepoint_;
 };
 
 #endif

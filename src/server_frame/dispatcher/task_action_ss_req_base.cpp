@@ -2,12 +2,14 @@
 // Created by owt50 on 2016/9/26.
 //
 
-#include "task_action_ss_req_base.h"
-
 #include <data/player.h>
 #include <logic/player_manager.h>
 #include <log/log_wrapper.h>
 #include <time/time_utility.h>
+
+#include <dispatcher/ss_msg_dispatcher.h>
+
+#include "task_action_ss_req_base.h"
 
 task_action_ss_req_base::task_action_ss_req_base() {}
 task_action_ss_req_base::~task_action_ss_req_base() {}
@@ -64,8 +66,8 @@ void task_action_ss_req_base::send_rsp_msg() {
         }
         (*iter).mutable_ssmsg()->mutable_head()->set_error_code(get_rsp_code());
 
-        // TODO send message using ss dispatcher
-        int32_t res = 0;
+        // send message using ss dispatcher
+        int32_t res = ss_msg_dispatcher::me()->send_to_proc((*iter).src_server().bus_id(), &(*iter));
         if (res) {
             WLOGERROR("task %s [0x%llx] send message to server 0x%llx failed, res: %d", name(), get_task_id_llu(),
                 static_cast<unsigned long long>((*iter).src_server().bus_id()),
@@ -86,7 +88,7 @@ int32_t task_action_ss_req_base::init_msg(msg_ref_type msg, uint64_t dst_pd, int
 }
 
 int32_t task_action_ss_req_base::init_msg(msg_ref_type msg, uint64_t dst_pd, int32_t ss_type, msg_cref_type req_msg) {
-    init_msg(msg, dst_pd, ss_type, req_msg);
+    init_msg(msg, dst_pd, ss_type);
 
     // set task information
     if (req_msg.has_src_server()) {
