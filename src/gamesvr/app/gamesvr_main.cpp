@@ -72,7 +72,7 @@ struct app_handle_on_msg {
             break;
         }
 
-        case ::atframe::component::ext_service_type::EN_ATST_SS_MSG: {
+        case ::atframe::component::message_type::EN_ATST_SS_MSG: {
             ret = ss_msg_dispatcher::me()->dispatch(msg, buffer, len);
             break;
         }

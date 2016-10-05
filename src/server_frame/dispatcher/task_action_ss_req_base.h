@@ -40,11 +40,11 @@ public:
 
     msg_ref_type add_rsp_msg(int32_t svr_msg_type, uint64_t dst_pd = 0);
 
-protected:
-    virtual void send_rsp_msg();
-
     static int32_t init_msg(msg_ref_type msg, uint64_t dst_pd, int32_t ss_type);
     static int32_t init_msg(msg_ref_type msg, uint64_t dst_pd, int32_t ss_type, msg_cref_type req_msg);
+
+protected:
+    virtual void send_rsp_msg();
 
 private:
     std::string player_openid_;

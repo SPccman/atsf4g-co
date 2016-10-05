@@ -157,7 +157,7 @@ int32_t ss_msg_dispatcher::send_to_proc(uint64_t bus_id, const void* msg_buf, si
         return hello::err::EN_SYS_INIT;
     }
 
-    int res = owner->get_bus_node()->send_data(bus_id, atframe::component::ext_service_type::EN_ATST_SS_MSG,
+    int res = owner->get_bus_node()->send_data(bus_id, atframe::component::message_type::EN_ATST_SS_MSG,
                                                msg_buf, msg_len, false
     );
 
@@ -178,7 +178,7 @@ int32_t ss_msg_dispatcher::send_to_proc(uint64_t bus_id, const void* msg_buf, si
 }
 
 int32_t ss_msg_dispatcher::dispatch(const atbus::protocol::msg &msg, const void *buffer, size_t len) {
-    if (::atframe::component::ext_service_type::EN_ATST_SS_MSG != msg.head.type) {
+    if (::atframe::component::message_type::EN_ATST_SS_MSG != msg.head.type) {
         WLOGERROR("message type %d invalid", msg.head.type);
         return hello::err::EN_SYS_PARAM;
     }

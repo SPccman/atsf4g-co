@@ -33,7 +33,7 @@ namespace rpc {
              * @param rsp 返回的登入信息
              * @return 0或错误码
              */
-            int get(int zone_id, const char* openid, hello::table_login& rsp, std::string &version);
+            int get(uint32_t zone_id, const char* openid, hello::table_login& rsp, std::string &version);
 
             /**
              * @brief 设置登入表的rpc操作

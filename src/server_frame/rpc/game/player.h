@@ -12,8 +12,6 @@
 #include <string>
 #include <vector>
 
-#include <protocol/pbdesc/svr.container.pb.h>
-
 namespace rpc {
     namespace game {
         namespace player {

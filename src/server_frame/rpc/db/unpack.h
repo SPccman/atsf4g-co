@@ -13,7 +13,7 @@ namespace hello {
     class message_container;
 }
 
-struct redisReply;
+extern "C" struct redisReply;
 
 namespace rpc {
     namespace db {

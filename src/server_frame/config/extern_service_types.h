@@ -7,7 +7,7 @@
 
 namespace atframe {
     namespace component {
-        struct ext_service_type {
+        struct message_type {
             enum type {
                 EN_ATST_SS_MSG = service_type::EN_ATST_CUSTOM_START, // solution services
             };

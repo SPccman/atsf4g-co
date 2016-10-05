@@ -19,7 +19,8 @@
 #include <hiredis/hiredis.h>
 #include <config/logic_config.h>
 
-struct redisAsyncContext;
+extern "C" struct redisAsyncContext;
+
 namespace hiredis {
     namespace happ {
         class cluster;
