@@ -130,27 +130,6 @@ namespace rpc {
                     version = "0";
                 }
 
-                size_t sum_len = static_cast<size_t>(rsp.ByteSize());
-                rsp.SerializeWithCachedSizesToArray(reinterpret_cast<::google::protobuf::uint8*>(db_msg_dispatcher::me()->get_cache_buffer(sum_len)));
-
-                //int res = DBMsgDispatcher::Instance()->SendMsg(
-                //task->get_id(),
-                //LogicConfig::Instance()->GetSelfPd(),
-                //detail::unpack_login,
-                //DBLOGINCMD(SET, openid, "%b", DBMsgDispatcher::Instance()->GetCacheBuffer(0), sum_len)
-                //);
-
-                /*static const char cmd[] ="\
-                local version = redis.call('HGET', KEYS[1], ARGV[1]);\
-                if version == false or tonumber(ARGV[2]) >= tonumber(version)  then\
-                    ARGV[2] = ARGV[2]+1;\
-                    redis.call('HMSET', KEYS[1], ARGV[1], ARGV[2], ARGV[3], ARGV[4]);\
-                    return  {ok = tostring(ARGV[2])};\
-                else\
-                    return  {ok = 'Failed'};\
-                end\
-                ";*/
-
                 DBLOGINKEY(user_key, writen_len, openid);
                 if (writen_len <= 0) {
                     WLOGERROR("format db cmd failed, cmd %s", user_key);
@@ -164,7 +143,9 @@ namespace rpc {
                     return hello::err::EN_SYS_PACK;
                 }
                 reflect->ListFields(rsp, &fds);
-                redis_args args(fds.size() + 6); // version will take two segments
+                // version will take two segments
+                // each fd will take key segment and value segment
+                redis_args args(fds.size() * 2 + 6);
                 {
                     args.push("EVALSHA");
                     args.push(db_msg_dispatcher::me()->get_db_script_sha1(hello::EN_DBSST_LOGIN));

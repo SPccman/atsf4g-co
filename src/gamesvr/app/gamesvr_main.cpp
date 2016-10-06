@@ -16,7 +16,12 @@
 #include <config/extern_service_types.h>
 #include <dispatcher/cs_msg_dispatcher.h>
 #include <dispatcher/ss_msg_dispatcher.h>
+#include <dispatcher/db_msg_dispatcher.h>
+
 #include <config/logic_config.h>
+
+#include <logic/player_manager.h>
+#include <logic/session_manager.h>
 
 
 #ifdef _MSC_VER
@@ -108,6 +113,12 @@ public:
     virtual int init() {
         WLOGINFO("============ server initialize ============");
         INIT_CALL(logic_config, get_app()->get_id());
+
+
+        // logic managers
+        INIT_CALL(task_manager);
+        INIT_CALL(player_manager);
+        INIT_CALL(session_manager);
         return 0;
     };
 
@@ -134,7 +145,12 @@ public:
     virtual const char *name() const { return "main_service_module"; }
 
     virtual int tick() {
-        return 0;
+        int ret = 0;
+        ret += player_manager::me()->proc();
+        ret += session_manager::me()->proc();
+        ret += task_manager::me()->tick(util::time::time_utility::get_now(), 1000 * util::time::time_utility::get_now_usec());
+
+        return ret;
     }
 };
 
@@ -142,6 +158,9 @@ int main(int argc, char *argv[]) {
     atapp::app app;
 
     app.add_module(std::make_shared<main_service_module>());
+    app.add_module(std::make_shared<cs_msg_dispatcher>());
+    app.add_module(std::make_shared<ss_msg_dispatcher>());
+    app.add_module(std::make_shared<db_msg_dispatcher>());
 
     // setup message handle
     app.set_evt_on_recv_msg(app_handle_on_msg());

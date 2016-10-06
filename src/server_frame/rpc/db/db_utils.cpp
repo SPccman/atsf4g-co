@@ -474,7 +474,7 @@ namespace rpc {
                             return hello::err::EN_SYS_MALLOC;\
                         }\
                         memcpy(data_allocated, vstr, static_cast<size_t>(intlen)); \
-                        stat_sum_len += intlen; \
+                        stat_sum_len += static_cast<size_t>(intlen); \
                         if (NULL != debug_message) { \
                             (*debug_message) << fds[i]->name() << "=" << vint << ","; \
                         } \
@@ -530,7 +530,7 @@ namespace rpc {
 
                         stat_sum_len += dump_len;
                         if (NULL != debug_message) {
-                            (*debug_message)<< fds[i]->name()<< "=" << dump_len<< "bytes,";
+                            (*debug_message)<< fds[i]->name()<< "=" << dump_len<< " bytes,";
                         }
                         break;
                     };
@@ -547,6 +547,7 @@ namespace rpc {
                                   msg.GetDescriptor()->full_name().c_str(),
                                   fds[i]->name().c_str(), fds[i]->cpp_type_name()
                         );
+                        args.dealloc();
                         break;
                     }
 
@@ -554,6 +555,10 @@ namespace rpc {
 
 #undef CASE_PB_INT_TO_REDIS_DATA
 
+            }
+
+            if (NULL != debug_message) {
+                (*debug_message)<< ". total value length=" << stat_sum_len<< " bytes";
             }
 
             return hello::err::EN_SUCCESS;

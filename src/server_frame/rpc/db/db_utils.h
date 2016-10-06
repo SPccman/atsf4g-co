@@ -89,6 +89,15 @@ namespace rpc {
 
         int unpack_message(::google::protobuf::Message& msg, const redisReply* reply, std::string* version);
 
+        /**
+         * package message into redis args, each message field will take two segment in args
+         * @param msg message
+         * @param args where to store arguments
+         * @param fds which fields will be packed
+         * @param version version if need
+         * @param debug_message debug message if need
+         * @return 0 or error code
+         */
         int pack_message(const ::google::protobuf::Message& msg, redis_args& args,
                          std::vector<const ::google::protobuf::FieldDescriptor*> fds,
                          std::string* version, std::ostream* debug_message);

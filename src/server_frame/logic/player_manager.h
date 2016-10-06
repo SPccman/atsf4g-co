@@ -92,6 +92,7 @@ private:
     player_index_t all_players_;
     std::list<std::weak_ptr<player> > auto_save_list_;
     std::list<player_cache_t> cache_expire_list_;
+    time_t last_proc_time_;
 };
 
 #endif

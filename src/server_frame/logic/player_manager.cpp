@@ -5,6 +5,12 @@
 #include "protocol/pbdesc/svr.const.err.pb.h"
 
 #include <config/logic_config.h>
+#include <rpc/db/login.h>
+#include <rpc/db/player.h>
+#include <dispatcher/task_manager.h>
+
+#include <logic/action/task_action_auto_save_players.h>
+#include <logic/action/task_action_player_cache_expired.h>
 
 #include "player_manager.h"
 #include "session_manager.h"
@@ -22,6 +28,7 @@ player_manager::player_ptr_t player_manager::make_default_player(const std::stri
 }
 
 int player_manager::init() {
+    last_proc_time_ = 0;
     return 0;
 }
 
@@ -48,8 +55,8 @@ bool player_manager::remove(player_manager::player_ptr_t u, bool force) {
 
             user_lg.set_login_pd(0);
             user_lg.set_logout_time(util::time::time_utility::get_now());
-            // TODO RPC save to db
-            res = 0;// rpc::db::login::Set(u->GetOpenId().c_str(), user_lg, version);
+            // RPC save to db
+            res = rpc::db::login::set(u->get_open_id().c_str(), user_lg, version);
             if (res < 0) {
                 WLOGERROR("player %s try logout load db failed, res: %d version:%s.", u->get_open_id().c_str(), res, version.c_str());
             }
@@ -97,8 +104,8 @@ int player_manager::save(player_ptr_t u, hello::table_login* login_tb, std::stri
     }
 
     uint64_t self_bus_id = logic_config::me()->get_self_bus_id();
-    // TODO RPC read from DB
-    int res = 0; //rpc::db::login::Get(u->GetOpenId().c_str(), *login_tb, *login_version);
+    // RPC read from DB
+    int res = rpc::db::login::get(u->get_open_id().c_str(), *login_tb, *login_version);
     if (res < 0) {
         WLOGERROR("player %s try load login data failed.", u->get_open_id().c_str());
         return res;
@@ -106,15 +113,15 @@ int player_manager::save(player_ptr_t u, hello::table_login* login_tb, std::stri
 
     // 异常的玩家数据记录，自动修复一下
     if (0 == login_tb->login_pd()) {
-        WLOGERROR("player %s login pd error(expected: 0x%llx, real: 0x%llx)",
+        WLOGERROR("player %s login bus id error(expected: 0x%llx, real: 0x%llx)",
             u->get_open_id().c_str(),
             static_cast<unsigned long long>(self_bus_id),
             static_cast<unsigned long long>(login_tb->login_pd())
         );
 
         login_tb->set_login_pd(self_bus_id);
-        // TODO RPC save to db
-        res = 0;//rpc::db::login::Set(u->GetOpenId().c_str(), *login_tb, *login_version);
+        // RPC save to db
+        res = rpc::db::login::set(u->get_open_id().c_str(), *login_tb, *login_version);
         if (res < 0) {
             WLOGERROR("user %s try set login data failed.", u->get_open_id().c_str());
             return res;
@@ -143,15 +150,15 @@ int player_manager::save(player_ptr_t u, hello::table_login* login_tb, std::stri
 
     WLOGDEBUG("player %s save curr data version:%s", u->get_open_id().c_str(), u->get_version().c_str());
 
-    // TODO RPC save to DB
-    res = 0;//rpc::db::game_user::Set(u->GetOpenId().c_str(), user_gu, u->GetVersion());
+    // RPC save to DB
+    res = rpc::db::player::set(u->get_open_id().c_str(), user_gu, u->get_version());
 
     // CAS 序号错误（可能是先超时再返回成功）,重试一次
     // 前面已经确认了当前用户在此处登入并且已经更新了版本号到版本信息
-    // TODO RPC save to DB again
-    //if (hello::err::EN_DB_OLD_VERSION == res) {
-    //    res = rpc::db::game_user::Set(u->get_open_id().c_str(), user_gu, u->get_version());
-    //}
+    // RPC save to DB again
+    if (hello::err::EN_DB_OLD_VERSION == res) {
+        res = rpc::db::player::set(u->get_open_id().c_str(), user_gu, u->get_version());
+    }
 
     if (res < 0) {
         WLOGERROR("player %s try save db failed. res:%d version:%s", u->get_open_id().c_str(), res, u->get_version().c_str());
@@ -194,11 +201,11 @@ player_manager::player_ptr_t player_manager::load(const std::string &openid, boo
 
         // 这个函数必须在task中运行
         // 尝试从数据库读数据
-        // TODO RPC get from DB
-        int res = 0;//rpc::db::game_user::GetAll(openid.c_str(), tbu, version);
+        // RPC get from DB
+        int res = rpc::db::player::get_all(openid.c_str(), tbu, version);
         if(res) {
             WLOGERROR("load game user data for %s failed, error code:%d", openid.c_str(), res);
-            return nullptr;
+            return NULL;
         }
 
         user = find(openid);
@@ -267,6 +274,12 @@ player_manager::player_ptr_t player_manager::find(const std::string& openid) {
 int player_manager::proc() {
     int ret = 0;
 
+    // 每秒只需要判定一次
+    if (last_proc_time_ == ::util::time::time_utility::get_now()) {
+        return ret;
+    }
+    last_proc_time_ = ::util::time::time_utility::get_now();
+
     // 自动保存
     do {
         if (auto_save_list_.empty()) {
@@ -299,16 +312,17 @@ int player_manager::proc() {
             break;
         }
 
-        // TODO 启动用户数据保存Task
-        // TaskManager::id_t task_id = 0;
-        // int res = TaskManager::Instance()->CreateTask<TaskActionAutoSaveGameUser>(task_id);
-        // if ( moyo_no1::err::EN_SUCCESS != res || 0 == task_id) {
-        //     WLOGERROR("create task to auto save failed.");
-        //     break;
-        // }
+        // 启动用户数据保存Task
+        // 使用默认的类似CS消息的短期的超时时间,以便减少数据缓存时间
+        task_manager::id_t task_id = 0;
+        int res = task_manager::me()->create_task<task_action_auto_save_players>(task_id);
+        if (hello::err::EN_SUCCESS != res || 0 == task_id) {
+            WLOGERROR("create task to auto save failed.");
+            break;
+        }
 
-        // moyo_no1::message_container msg;
-        // TaskManager::Instance()->StartTask(task_id, msg);
+        hello::message_container msg;
+        task_manager::me()->start_task(task_id, msg);
 
         ++ ret;
         break;
@@ -322,16 +336,21 @@ int player_manager::proc() {
         }
 
         player_cache_t& cache = cache_expire_list_.front();
-        player_ptr_t user = cache.player_inst.lock();
 
-        // 如果已下线并且用户缓存失效则跳过
-        if (!user) {
-            cache_expire_list_.pop_front();
-            continue;
+        // 如果没到时间，后面的全没到时间
+        if (util::time::time_utility::get_now() <= cache.expire_time) {
+            break;
         }
 
         // 不需要保存则跳过
         if (false == cache.save) {
+            cache_expire_list_.pop_front();
+            continue;
+        }
+
+        // 如果已下线并且用户缓存失效则跳过
+        player_ptr_t user = cache.player_inst.lock();
+        if (!user) {
             cache_expire_list_.pop_front();
             continue;
         }
@@ -342,21 +361,17 @@ int player_manager::proc() {
             continue;
         }
 
-        // 如果没到时间，后面的全没到时间
-        if (util::time::time_utility::get_now() <= cache.expire_time) {
+        // 启动用户缓存失效登出Task
+        // 使用默认的类似CS消息的短期的超时时间,以便减少数据缓存时间
+        task_manager::id_t task_id = 0;
+        int res = task_manager::me()->create_task<task_action_player_cache_expired>(task_id);
+        if ( hello::err::EN_SUCCESS != res || 0 == task_id) {
+            WLOGERROR("create task to expire cache failed.");
             break;
         }
 
-        // TODO 启动用户登出Task
-        //TaskManager::id_t task_id = 0;
-        //int res = TaskManager::Instance()->CreateTask<TaskActionUserCacheExpired>(task_id);
-        //if ( moyo_no1::err::EN_SUCCESS != res || 0 == task_id) {
-        //    WLOGERROR("create task to expire cache failed.");
-        //    break;
-        //}
-
-        //moyo_no1::message_container msg;
-        //TaskManager::Instance()->StartTask(task_id, msg);
+        hello::message_container msg;
+        task_manager::me()->start_task(task_id, msg);
 
         ++ ret;
         break;
