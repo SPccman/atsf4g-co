@@ -74,7 +74,7 @@ bool player_manager::remove(player_manager::player_ptr_t u, bool force) {
     if (s) {
         u->set_session(NULL);
         s->set_player(NULL);
-        session_manager::me()->remove(s, true);
+        session_manager::me()->remove(s, ::atframe::gateway::close_reason_t::EN_CRT_KICKOFF);
     }
 
     u->set_removing(false);

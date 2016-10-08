@@ -93,6 +93,21 @@ enum EnItemChgSubType {
     EN_ICST_DEFAULT = 0; // default
 }
 
+// @see
+enum EnCloseReason {
+    // 0x00 - 0x100 是atgateway内部的网络层可重连关闭原因
+    // 0x10000 - 0x10100 是atgateway内部的网络层不可重连关闭原因
+
+    // 0x20000 == 131072
+    // 0x20000 - 0x30000 是自定义网络层不可重连，逻辑层可重连关闭原因
+    EN_CR_SESSION_NOT_FOUND     = 131073; // session不存在
+    EN_CR_SPEED_WARNING         = 131074; // 游戏速度异常
+
+    // 0x30000 == 196608
+    // 0x30000 - 0x40000 是自定义网络层不可重连，逻辑层不可重连关闭原因
+    EN_CR_LOGIN_BAN             = 196609; // 封号
+}
+
 // error code
 enum EnErrorCode {
     EN_SUCCESS               = 0;

@@ -8,7 +8,7 @@ package hello;
 
 message table_login {
     string openid             = 1;
-    uint32 login_pd           = 2; // 登入进程id
+    uint64 login_pd           = 2; // 登入进程id
     uint32 login_time         = 3; // 上次登入时间
     string login_code         = 4; // 认证码
     uint32 login_code_expired = 5; // 认证码到期时间

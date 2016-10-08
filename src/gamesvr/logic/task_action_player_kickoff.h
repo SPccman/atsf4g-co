@@ -7,8 +7,17 @@
 
 #pragma once
 
-class task_action_player_kickoff {
+#include <dispatcher/task_action_ss_req_base.h>
 
+class task_action_player_kickoff : public task_action_ss_req_base {
+public:
+    task_action_player_kickoff();
+    ~task_action_player_kickoff();
+
+    virtual int operator()(hello::message_container& msg);
+
+    virtual int on_success();
+    virtual int on_failed();
 };
 
 

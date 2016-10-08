@@ -7,8 +7,21 @@
 
 #pragma once
 
-class task_action_player_cache_expired {
+#include <dispatcher/task_action_no_req_base.h>
 
+class task_action_player_cache_expired : public task_action_no_req_base {
+public:
+    task_action_player_cache_expired();
+    ~task_action_player_cache_expired();
+
+    virtual int operator()(hello::message_container& msg);
+
+    virtual int on_success();
+    virtual int on_failed();
+    virtual int on_timeout();
+private:
+    int success_count_;
+    int failed_count_;
 };
 
 

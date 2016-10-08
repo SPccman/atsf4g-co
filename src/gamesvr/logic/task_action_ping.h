@@ -7,8 +7,17 @@
 
 #pragma once
 
-class task_action_ping {
+#include <dispatcher/task_action_cs_req_base.h>
 
+class task_action_ping : public task_action_cs_req_base {
+public:
+    task_action_ping();
+    ~task_action_ping();
+
+    virtual int operator()(hello::message_container& msg);
+
+    virtual int on_success();
+    virtual int on_failed();
 };
 
 

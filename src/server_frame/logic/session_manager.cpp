@@ -92,17 +92,17 @@ session_manager::sess_ptr_t session_manager::create(const session::key_t& key) {
     return sess;
 }
 
-void session_manager::remove(const session::key_t& key, bool kickoff) {
-    remove(find(key), kickoff);
+void session_manager::remove(const session::key_t& key, int reason) {
+    remove(find(key), reason);
 }
 
-void session_manager::remove(sess_ptr_t sess, bool kickoff) {
+void session_manager::remove(sess_ptr_t sess, int reason) {
     if(!sess) {
         return;
     }
 
-    if (kickoff) {
-        sess->send_kickoff(::atframe::gateway::close_reason_t::EN_CRT_KICKOFF);
+    if (0 != reason) {
+        sess->send_kickoff(reason);
     }
 
     session::key_t key = sess->get_key();

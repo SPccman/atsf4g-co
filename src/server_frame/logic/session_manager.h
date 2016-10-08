@@ -32,8 +32,8 @@ public:
 
     sess_ptr_t create(const session::key_t& key);
 
-    void remove(const session::key_t& key, bool kickoff = false);
-    void remove(sess_ptr_t sess, bool kickoff = false);
+    void remove(const session::key_t& key, int reason = 0);
+    void remove(sess_ptr_t sess, int reason = 0);
 
     void remove_all();
 
