@@ -31,27 +31,23 @@ std::pair<uint64_t, uint64_t> task_action_cs_req_base::get_gateway_info() const 
 };
 
 std::shared_ptr<session> task_action_cs_req_base::get_session() const {
-    std::shared_ptr<player> player_inst = get_player();
-    if(!player_inst) {
-        return NULL;
-    }
-
-    return player_inst->get_session();
-}
-
-std::shared_ptr<player> task_action_cs_req_base::get_player() const {
-    if (player_inst_) {
-        return player_inst_;
+    if (session_inst_) {
+        return session_inst_;
     }
 
     session::key_t key(get_gateway_info());
-    session::ptr_t sess = session_manager::me()->find(key);
+    session_inst_ = session_manager::me()->find(key);
+    return session_inst_;
+}
+
+std::shared_ptr<player> task_action_cs_req_base::get_player() const {
+    session::ptr_t sess = get_session();
 
     if (sess) {
-        player_inst_ = sess->get_player();
+        return sess->get_player();
     }
 
-    return player_inst_;
+    return NULL;
 }
 
 task_action_cs_req_base::msg_ref_type task_action_cs_req_base::add_rsp_msg() {

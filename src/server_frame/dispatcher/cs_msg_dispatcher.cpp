@@ -146,7 +146,7 @@ int32_t cs_msg_dispatcher::dispatch(const atbus::protocol::msg &msg, const void 
                 );
                 ret = hello::err::EN_SYS_NOTFOUND;
 
-                send_kickoff(session_key.bus_id, session_key.session_id, hello::EN_CR_SESSION_NOT_FOUND);
+                send_kickoff(session_key.bus_id, session_key.session_id, hello::EN_CRT_SESSION_NOT_FOUND);
                 break;
             }
 

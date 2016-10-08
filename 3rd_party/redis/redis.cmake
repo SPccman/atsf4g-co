@@ -59,8 +59,6 @@ else()
     message(FATAL_ERROR "redis libs not found")
 endif()
 
-add_subdirectory(${3RD_PARTY_REDIS_HAPP_DIR})
-
 set (3RD_PARTY_REDIS_INC_DIR "${Libhiredis_INCLUDE_DIRS}")
 set (3RD_PARTY_REDIS_LINK_NAME hiredis-happ ${Libhiredis_LIBRARIES})
 

@@ -142,7 +142,7 @@ void session_manager::remove(sess_ptr_t sess, int reason) {
         // u->GetLogMgr().WLOGLogout();
 
         // 如果是踢下线，则需要强制保存并移除GameUser对象
-        player_manager::me()->remove(u, kickoff);
+        player_manager::me()->remove(u, 0 != reason);
     }
 }
 

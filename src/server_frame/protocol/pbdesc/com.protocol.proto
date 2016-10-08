@@ -23,7 +23,7 @@ message SCLoginUpdateRsp {
 }
 
 
-message CSLoginVerifyReq {
+message CSLoginAuthReq {
     string        open_id       = 1;
     DPlatformData platform      = 2; // 平台信息
     int32         system_id     = 3; // 系统id，ios or android
@@ -33,18 +33,19 @@ message CSLoginVerifyReq {
     DClientDeviceInfo client_info = 11;
 }
 
-message SCLoginVerifyRsp {
+message SCLoginAuthRsp {
     string login_code = 1;
     // repeated 表示有多个备选 。域名|IP + 端口, 类似下面的形式：10.164.1.54:8002 or dd.qq.com:8080
     repeated string  login_address = 2;
     DClientUpdateCfg update_info   = 3; // 更新信息
-    int32            version_type  = 4; // 版本类型 @EnVersionType
+    uint32           version_type  = 4; // 版本类型 @EnVersionType
 
     string open_id       = 21; // 最终open_id
     bool   is_new_player = 22; // 是否是新玩家
     uint32 zone_id       = 23; // 大区ID
 
-    int64 ban_time = 101; // 封号期限
+    int64 ban_time = 101;      // 封号期限
+    int64 start_time = 102;    // 开服时间
 }
 
 // 修改密码
@@ -104,8 +105,8 @@ message CSMsgHead {
 
 // 协议包体
 message CSMsgBody {
-    CSLoginVerifyReq mcs_login_verify_req = 1001;
-    SCLoginVerifyRsp msc_login_verify_rsp = 1002;
+    CSLoginAuthReq    mcs_login_auth_req    = 1001;
+    SCLoginAuthRsp    msc_login_auth_rsp    = 1002;
 
     CSLoginReq        mcs_login_req         = 1003;
     SCLoginRsp        msc_login_rsp         = 1004;

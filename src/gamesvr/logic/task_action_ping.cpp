@@ -40,7 +40,7 @@ int task_action_ping::operator()(hello::message_container& msg) {
         // 封号一段时间
 
         set_rsp_code(hello::EN_ERR_LOGIN_BAN);
-        int kick_off_reason = hello::EN_CR_LOGIN_BAN;
+        int kick_off_reason = hello::EN_CRT_LOGIN_BAN;
         hello::table_login tb;
         do {
             std::string login_ver;
@@ -67,10 +67,10 @@ int task_action_ping::operator()(hello::message_container& msg) {
             if (tb.except().except_con_times() >= logic_config::me()->get_cfg_logic().heartbeat_ban_error_times) {
                 tb.set_ban_time(static_cast<uint32_t>(util::time::time_utility::get_now() +
                     logic_config::me()->get_cfg_logic().session_login_ban_time));
-                kick_off_reason = hello::EN_CR_LOGIN_BAN;
+                kick_off_reason = hello::EN_CRT_LOGIN_BAN;
                 set_rsp_code(hello::EN_ERR_LOGIN_BAN);
             } else {
-                kick_off_reason = hello::EN_CR_SPEED_WARNING;
+                kick_off_reason = hello::EN_CRT_SPEED_WARNING;
                 set_rsp_code(hello::EN_ERR_LOGIN_SPEED_WARNING);
             }
             // 保存封号结果

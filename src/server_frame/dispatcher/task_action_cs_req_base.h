@@ -51,7 +51,7 @@ protected:
     virtual void send_rsp_msg();
 
 private:
-    mutable std::shared_ptr<player> player_inst_;
+    mutable std::shared_ptr<session> session_inst_;
     std::list<msg_type> rsp_msgs_;
 };
 
