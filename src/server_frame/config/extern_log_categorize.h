@@ -18,6 +18,6 @@ struct log_categorize_t {
     };
 };
 
-UTIL_CONFIG_STATIC_ASSERT_MSG(log_categorize_t::MAX <= ::util::log::log_wrapper::categorize_t::MAX, "log categorize is too large");
+UTIL_CONFIG_STATIC_ASSERT_MSG(((int)log_categorize_t::MAX) <= ((int)::util::log::log_wrapper::categorize_t::MAX), "log categorize is too large");
 
 #endif //ATF4G_CO_EXTERN_LOG_CATEGORIZE_H

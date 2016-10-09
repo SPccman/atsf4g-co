@@ -24,9 +24,13 @@ uint64_t task_action_ss_req_base::get_request_bus_id() const {
 }
 
 const std::string& task_action_ss_req_base::get_player_openid() const {
+    if (!player_openid_.empty()) {
+        return player_openid_;
+    }
+
     msg_cref_type msg = get_request();
     if (msg.has_ssmsg() && msg.ssmsg().has_head() && !msg.ssmsg().head().openid().empty()) {
-        msg.ssmsg().head().openid();
+        player_openid_ = msg.ssmsg().head().openid();
     }
 
     return player_openid_;

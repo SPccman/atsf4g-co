@@ -116,13 +116,19 @@ const std::string& dispatcher_implement::get_empty_string() {
     return ret;
 }
 
-int dispatcher_implement::_register_action(msg_type_t msg_type_id, task_manager::action_creator_t action) {
+int dispatcher_implement::_register_action(const std::string& msg_name, task_manager::action_creator_t action) {
+    msg_type_t msg_type_id = msg_name_to_type_id(msg_name);
+    if (0 == msg_type_id) {
+        WLOGERROR("%s try to register action with invalid name %s.", name(), msg_name.c_str());
+        return hello::err::EN_SYS_INIT;
+    }
+
     msg_action_set_t::iterator iter = action_name_map_.find(msg_type_id);
     if (action_name_map_.end() != iter) {
-        WLOGERROR("action type %u exists.", msg_type_id);
+        WLOGERROR("%s try to register more than one actions to type %u.", name(), msg_type_id);
         return hello::err::EN_SYS_INIT;
     }
 
     action_name_map_[msg_type_id] = action;
-    return 0;
+    return hello::err::EN_SUCCESS;
 }

@@ -14,15 +14,18 @@
 #include <proto_base.h>
 #include <atframe/atapp.h>
 
-const const char* cs_msg_dispatcher::name() const UTIL_CONFIG_OVERRIDE {
+cs_msg_dispatcher::cs_msg_dispatcher() {}
+cs_msg_dispatcher::~cs_msg_dispatcher() {}
+
+const char* cs_msg_dispatcher::name() const {
     return "cs_msg_dispatcher";
 }
 
-int32_t cs_msg_dispatcher::init() UTIL_CONFIG_OVERRIDE {
+int32_t cs_msg_dispatcher::init() {
     return 0;
 }
 
-int32_t cs_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) UTIL_CONFIG_OVERRIDE {
+int32_t cs_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) {
     if (NULL == msg_container) {
         WLOGERROR("parameter error");
         return hello::err::EN_SYS_PARAM;
@@ -36,12 +39,12 @@ int32_t cs_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_b
     return hello::err::EN_SUCCESS;
 }
 
-uint64_t cs_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+uint64_t cs_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) {
     // cs msg not allow resume task
     return 0;
 }
 
-const std::string& cs_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+const std::string& cs_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) {
     if (NULL == msg_container) {
         return get_empty_string();
     }
@@ -70,7 +73,7 @@ const std::string& cs_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_containe
     return output[0]->name();
 }
 
-cs_msg_dispatcher::msg_type_t cs_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+cs_msg_dispatcher::msg_type_t cs_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) {
     if (NULL == msg_container) {
         return 0;
     }
@@ -99,7 +102,7 @@ cs_msg_dispatcher::msg_type_t cs_msg_dispatcher::pick_msg_type_id(const msg_ptr_
     return static_cast<msg_type_t>(output[0]->number());
 }
 
-cs_msg_dispatcher::msg_type_t cs_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) UTIL_CONFIG_OVERRIDE {
+cs_msg_dispatcher::msg_type_t cs_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) {
     hello::CSMsgBody empty_body;
     const google::protobuf::FieldDescriptor* desc = empty_body.GetDescriptor()->FindFieldByName(msg_name);
     if (NULL == desc) {

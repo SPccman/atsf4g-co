@@ -1,5 +1,5 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <log/log_wrapper.h>
@@ -144,4 +144,5 @@ int task_action_auto_save_players::on_failed() {
 
 int task_action_auto_save_players::on_timeout() {
     WLOGWARNING("auto save task timeout, we will continue on next round.");
+    return 0;
 }

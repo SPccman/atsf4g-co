@@ -1,8 +1,12 @@
 #include <log/log_wrapper.h>
+#include <algorithm/hash.h>
+
 #include <protocol/pbdesc/svr.const.err.pb.h>
 
 #include <proto_base.h>
 #include <dispatcher/cs_msg_dispatcher.h>
+
+#include <utility/environment_helper.h>
 
 #include "session.h"
 #include "player.h"
@@ -10,6 +14,36 @@
 
 session::key_t::key_t(): bus_id(0), session_id(0) {}
 session::key_t::key_t(const std::pair<uint64_t, uint64_t>& p): bus_id(p.first), session_id(p.second) {}
+
+bool session::key_t::operator==(const key_t& r) const {
+    return bus_id == r.bus_id && session_id == r.session_id;
+}
+
+bool session::key_t::operator!=(const key_t& r) const {
+    return !((*this) == r);
+}
+
+bool session::key_t::operator<(const key_t& r) const {
+    if (bus_id != r.bus_id) {
+        return bus_id < r.bus_id;
+    }
+    return session_id < r.session_id;
+}
+
+bool session::key_t::operator<=(const key_t& r) const {
+    return (*this) < r || (*this ) == r;
+}
+
+bool session::key_t::operator>(const key_t& r) const {
+    if (bus_id != r.bus_id) {
+        return bus_id > r.bus_id;
+    }
+    return session_id > r.session_id;
+}
+
+bool session::key_t::operator>=(const key_t& r) const {
+    return (*this) > r || (*this ) == r;
+}
 
 session::session() : login_task_id_(0) {
     id_.bus_id = 0;
@@ -96,6 +130,11 @@ bool session::compare_callback::operator()(const key_t &l, const key_t &r) const
         return l.session_id < r.session_id;
     }
     return l.bus_id < r.bus_id;
+}
+
+size_t session::compare_callback::operator()(const key_t &hash_obj) const {
+    // std::hash also use fnv1 hash algorithm, but fnv1a sometime has better random
+    return util::hash::hash_fnv1a<size_t>(&hash_obj.bus_id, sizeof(hash_obj.bus_id)) ^ util::hash::hash_fnv1<size_t>(&hash_obj.session_id, sizeof(hash_obj.session_id));
 }
 
 int32_t session::send_kickoff(int32_t reason) {

@@ -8,6 +8,7 @@
 #pragma once
 
 #include <design_pattern/singleton.h>
+#include <log/log_wrapper.h>
 
 namespace excel {
     class config_set_base {

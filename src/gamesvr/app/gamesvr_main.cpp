@@ -23,6 +23,9 @@
 #include <logic/player_manager.h>
 #include <logic/session_manager.h>
 
+#include "handle_cs_msg.h"
+#include "handle_ss_msg.h"
+
 
 #ifdef _MSC_VER
 
@@ -114,11 +117,15 @@ public:
         WLOGINFO("============ server initialize ============");
         INIT_CALL(logic_config, get_app()->get_id());
 
-
         // logic managers
         INIT_CALL(task_manager);
         INIT_CALL(player_manager);
         INIT_CALL(session_manager);
+
+        // register handles
+        INIT_CALL(app_handle_ss_msg);
+        INIT_CALL(app_handle_cs_msg);
+
         return 0;
     };
 
@@ -127,7 +134,7 @@ public:
         int ret = 0;
         util::config::ini_loader &cfg = get_app()->get_configure();
 
-        RELOAD_CALL(ret, logic_config, get_app()->get_configure());
+        RELOAD_CALL(ret, logic_config, cfg);
 
         return ret;
     }
@@ -158,9 +165,9 @@ int main(int argc, char *argv[]) {
     atapp::app app;
 
     app.add_module(std::make_shared<main_service_module>());
-    app.add_module(std::make_shared<cs_msg_dispatcher>());
-    app.add_module(std::make_shared<ss_msg_dispatcher>());
-    app.add_module(std::make_shared<db_msg_dispatcher>());
+    app.add_module(cs_msg_dispatcher::me());
+    app.add_module(ss_msg_dispatcher::me());
+    app.add_module(db_msg_dispatcher::me());
 
     // setup message handle
     app.set_evt_on_recv_msg(app_handle_on_msg());

@@ -69,7 +69,7 @@ void player::on_remove() {}
 
 void player::set_session(std::shared_ptr<session> session_ptr) {
     std::shared_ptr<session> old_sess = session_.lock();
-    if (old_sess == session_) {
+    if (old_sess == session_ptr) {
         return;
     }
 
@@ -206,7 +206,7 @@ void player::reset_auto_save() {
 const player::schedule_record_t &player::get_schedule_data() const { return schedule_data_; };
 
 bool player::check_logout_cache(uint32_t seq) const {
-    seq == schedule_data_.cache_sequence;
+    return seq == schedule_data_.cache_sequence;
 }
 
 void player::update_heartbeat() {

@@ -1,22 +1,29 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <log/log_wrapper.h>
+#include <std/foreach.h>
 #include <protocol/pbdesc/svr.const.err.pb.h>
 #include <protocol/pbdesc/svr.container.pb.h>
 
 #include <rpc/db/login.h>
+#include <rpc/db/uuid.h>
 #include <rpc/auth/login.h>
+#include <rpc/game/player.h>
 #include <config/logic_config.h>
 #include <time/time_utility.h>
+
 #include <proto_base.h>
+
+#include <utility/random_engine.h>
 
 #include <logic/session_manager.h>
 #include <data/session.h>
 
 #include "task_action_login_authorization.h"
 
+UTIL_ENV_AUTO_SET(std::string) task_action_login_authorization::white_skip_openids_;
 
 task_action_login_authorization::task_action_login_authorization(): is_new_player_(false), strategy_type_(hello::EN_VERSION_DEFAULT) {}
 task_action_login_authorization::~task_action_login_authorization() {}
@@ -25,222 +32,186 @@ int task_action_login_authorization::operator()(hello::message_container& msg) {
     is_new_player_ = false;
     strategy_type_ = hello::EN_VERSION_DEFAULT;
 
-    Session::ptr_t my_sess = GetSession();
+    session::ptr_t my_sess = get_session();
     if (!my_sess) {
         WLOGERROR("session not found");
-        SetRspCode(moyo_no1::EN_ERR_SYSTEM);
-        return moyo_no1::err::EN_SYS_PARAM;
+        set_rsp_code(hello::EN_ERR_SYSTEM);
+        return hello::err::EN_SYS_PARAM;
     }
     // 设置登入协议ID
-    my_sess->SetLoginTaskId(GetTaskId());
+    my_sess->set_login_task_id(get_task_id());
 
     int res = 0;
-    m_iStrategyType = moyo_no1::EN_VERSION_DEFAULT;
-    m_strLoginCode.resize(32);
-    rpc::auth::login::GenLoginCode(&m_strLoginCode[0], m_strLoginCode.size());
+    std::string login_code;
+    login_code.resize(32);
+    rpc::auth::login::generate_login_code(&login_code[0], login_code.size());
 
     // 1. 包校验
-    msg_ptr_type req = GetRequest();
-    if (!req->has_body() || !req->body().has_mcs_login_verify_req()) {
+    msg_cptr_type req = get_cs_request();
+    if (!req->has_body() || !req->body().has_mcs_login_auth_req()) {
         WLOGERROR("login package error, msg: %s", req->DebugString().c_str());
-        SetRspCode(moyo_no1::EN_ERR_INVALID_PARAM);
-        return moyo_no1::err::EN_SUCCESS;
+        set_rsp_code(hello::EN_ERR_INVALID_PARAM);
+        return hello::err::EN_SUCCESS;
     }
 
-    const ::moyo_no1::CSLoginVerifyReq &stMsgBodyRaw = req->body().mcs_login_verify_req();
-    ::moyo_no1::CSLoginVerifyReq stMsgBody;
-    stMsgBody.CopyFrom(stMsgBodyRaw);
+    const ::hello::CSLoginAuthReq &msg_body_raw = req->body().mcs_login_auth_req();
+    ::hello::CSLoginAuthReq msg_body;
+    msg_body.CopyFrom(msg_body_raw);
 
     // 2. 版本号及更新逻辑
-    uint32_t plat_id = stMsgBody.platform().platform_id();
+    uint32_t plat_id = msg_body.platform().platform_id();
     // 调试平台状态，强制重定向平台，并且不验证密码
-    if (LogicConfig::Instance()->GetCfgLoginSvr().m_iDebugPlatform > 0) {
-        plat_id = LogicConfig::Instance()->GetCfgLoginSvr().m_iDebugPlatform;
+    if (logic_config::me()->get_cfg_svr_login().debug_platform_mode > 0) {
+        plat_id = logic_config::me()->get_cfg_svr_login().debug_platform_mode;
     }
 
-    uint32_t channel_id = stMsgBody.platform().channel_id();
-    uint32_t system_id = stMsgBody.system_id();
-    uint32_t version = stMsgBody.version();
+    uint32_t channel_id = msg_body.platform().channel_id();
+    uint32_t system_id = msg_body.system_id();
+    // uint32_t version = msg_body.version();
 
-    m_strOpenId = make_openid(stMsgBodyRaw);
+    final_openid_ = make_openid(msg_body_raw);
+    msg_body.set_open_id(final_openid_);
 
-    stMsgBody.set_open_id(m_strOpenId);
-
-    do {
-
-        // TODO 测试期间没有版本不检查
-        // if (!stMsgBody.has_proto_version()) {
-        // break;
-        //}
-
-        // 检查账号登入策略
-        // res = check_strategy(plat_id, system_id, version, stMsgBody.open_id());
-        // if (res < 0)
-        //{
-        //// 出错返回
-        // WLOGERROR("check strategy failed:%d", res);
-        // SetRspCode(res);
-        // return res;
-        //}
-
-        // if (res == moyo_no1::EN_VERSION_REVIEW)
-        //{
-        //// 审核版本直接下一步
-        //// return TaskStep::E_TASK_STEP_NEXT;
-        // break;
-        //}
-
-        // res = moyo_no1::EN_VERSION_DEFAULT;
-        m_iStrategyType = UpdateRuleMgr::Instance()->GetVersionType(plat_id, system_id, version);
-
-        // 检查客户端更新信息 更新不分平台值0
-        if (UpdateRuleMgr::Instance()->CheckUpdate(m_stUpCfg, plat_id, channel_id, system_id, version, m_iStrategyType)) {
-            SetRspCode(moyo_no1::EN_ERR_LOGIN_VERSION);
-            return moyo_no1::EN_ERR_LOGIN_VERSION;
-        }
-
-        // 检查协议版本号信息
-        // res = check_proto_update(stMsgBody.proto_version());
-        // if (res < 0)
-        //{
-        // SetRspCode(res);
-        // return res;
-        //}
-    } while (false);
+    // TODO judge the update strategy
+    //do {
+    //    strategy_type_ = update_rule_manager::me()->get_version_type(plat_id, system_id, version);
+    //    // 检查客户端更新信息 更新不分平台值0
+    //    if (update_rule_manager::me()->check_update(update_info_, plat_id, channel_id, system_id, version, strategy_type_)) {
+    //        set_rsp_code(hello::EN_ERR_LOGIN_VERSION);
+    //        return hello::EN_ERR_LOGIN_VERSION;
+    //    }
+    //} while (false);
 
     // 3. 平台校验逻辑
     // 调试模式不用验证
-    if (LogicConfig::Instance()->GetCfgLoginSvr().m_iDebugPlatform <= 0) {
-        verify_fn_t vfn = get_verify_fn(plat_id);
+    if (logic_config::me()->get_cfg_svr_login().debug_platform_mode <= 0) {
+        auth_fn_t vfn = get_verify_fn(plat_id);
         if (NULL == vfn) {
             // 平台不收支持错误码
-            SetRspCode(moyo_no1::EN_ERR_LOGIN_INVALID_PLAT);
-            WLOGERROR("user %s report invalid platform %u", stMsgBody.open_id().c_str(), plat_id);
-            return moyo_no1::err::EN_SUCCESS;
+            set_rsp_code(hello::EN_ERR_LOGIN_INVALID_PLAT);
+            WLOGERROR("user %s report invalid platform %u", msg_body.open_id().c_str(), plat_id);
+            return hello::err::EN_SUCCESS;
         }
 
         // 第三方平台用原始数据
-        if (plat_id == moyo_no1::EN_PTI_ACCOUNT) {
-            res = (this->*vfn)(stMsgBody);
+        if (plat_id == hello::EN_PTI_ACCOUNT) {
+            res = (this->*vfn)(msg_body);
         } else {
-            res = (this->*vfn)(stMsgBodyRaw);
+            res = (this->*vfn)(msg_body_raw);
             // 有可能第三方认证会生成新的OpenId
-            stMsgBody.set_open_id(m_strOpenId);
+            msg_body.set_open_id(final_openid_);
         }
 
         if (res < 0) {
             // 平台校验错误错误码
-            SetRspCode(res);
-            return moyo_no1::err::EN_SUCCESS;
+            set_rsp_code(res);
+            return hello::err::EN_SUCCESS;
         }
     }
 
     // 4. 开放时间限制
     bool pending_check = false;
-    if (LogicConfig::Instance()->GetCfgLoginSvr().m_tStartTime > 0 &&
-        TimeUtility::getCurrentUnixTimeStamp() < LogicConfig::Instance()->GetCfgLoginSvr().m_tStartTime) {
+    if (logic_config::me()->get_cfg_svr_login().start_time > 0 &&
+        util::time::time_utility::get_now() < logic_config::me()->get_cfg_svr_login().start_time) {
         pending_check = true;
     }
 
-    if (LogicConfig::Instance()->GetCfgLoginSvr().m_tEndTime > 0 &&
-        TimeUtility::getCurrentUnixTimeStamp() > LogicConfig::Instance()->GetCfgLoginSvr().m_tEndTime) {
+    if (logic_config::me()->get_cfg_svr_login().end_time > 0 &&
+        util::time::time_utility::get_now() > logic_config::me()->get_cfg_svr_login().end_time) {
         pending_check = true;
     }
 
     if (pending_check) {
-        if (m_stWhiteSkipPending.size() != LogicConfig::Instance()->GetCfgLoginSvr().m_stWhiteSkipPending.size()) {
+        if (white_skip_openids_.size() != logic_config::me()->get_cfg_svr_login().white_openid_list.size()) {
             // 清除缓存
-            m_stWhiteSkipPending.clear();
-            for (const std::string &openid : LogicConfig::Instance()->GetCfgLoginSvr().m_stWhiteSkipPending) {
-                m_stWhiteSkipPending.insert(openid);
+            white_skip_openids_.clear();
+            owent_foreach(const std::string &openid, logic_config::me()->get_cfg_svr_login().white_openid_list) {
+                white_skip_openids_.insert(openid);
             }
         }
 
         // 白名单放过
-        if (m_stWhiteSkipPending.end() == m_stWhiteSkipPending.find(m_strOpenId)) {
+        if (white_skip_openids_.end() == white_skip_openids_.find(final_openid_)) {
             // 维护模式，直接踢下线
-            if (LogicConfig::Instance()->GetCfgLogic().m_bIsMaintenanceMode) {
-                SetRspCode(moyo_no1::EN_ERR_MAINTENANCE);
+            if (logic_config::me()->get_cfg_logic().server_maintenance_mode) {
+                set_rsp_code(hello::EN_ERR_MAINTENANCE);
             } else {
-                SetRspCode(moyo_no1::EN_ERR_LOGIN_SERVER_PENDING);
+                set_rsp_code(hello::EN_ERR_LOGIN_SERVER_PENDING);
             }
 
-            return moyo_no1::err::EN_SUCCESS;
+            return hello::err::EN_SUCCESS;
         }
     }
 
     // 5. 获取当前账户登入信息(如果不存在则直接转到 9)
-    moyo_no1::table_login tb;
     do {
-        res = rpc::db::login::Get(stMsgBody.open_id().c_str(), tb, m_strVersion);
-        if (moyo_no1::err::EN_DB_RECORD_NOT_FOUND != res && res < 0) {
-            WLOGERROR("call login rpc method failed, msg: %s", stMsgBody.DebugString().c_str());
-            SetRspCode(moyo_no1::EN_ERR_UNKNOWN);
+        res = rpc::db::login::get(msg_body.open_id().c_str(), login_data_, version_);
+        if (hello::err::EN_DB_RECORD_NOT_FOUND != res && res < 0) {
+            WLOGERROR("call login rpc method failed, msg: %s", msg_body.DebugString().c_str());
+            set_rsp_code(hello::EN_ERR_UNKNOWN);
             return res;
         }
 
-        if (moyo_no1::err::EN_DB_RECORD_NOT_FOUND == res) {
+        if (hello::err::EN_DB_RECORD_NOT_FOUND == res) {
             break;
         }
 
         // 6. 是否禁止登入
-        if (TimeUtility::getCurrentUnixTimeStamp() < tb.ban_time()) {
-            SetRspCode(moyo_no1::EN_ERR_LOGIN_BAN);
-            WLOGINFO("user %s try to login but banned", stMsgBody.open_id().c_str());
-            m_iBanTime = tb.ban_time();
-            return moyo_no1::err::EN_SUCCESS;
+        if (util::time::time_utility::get_now() < login_data_.ban_time()) {
+            set_rsp_code(hello::EN_ERR_LOGIN_BAN);
+            WLOGINFO("user %s try to login but banned", msg_body.open_id().c_str());
+            return hello::err::EN_SUCCESS;
         }
 
         // 优先使用为过期的gamesvr index
-        if (tb.has_last_login() && tb.last_login().has_gamesvr_index() &&
-            tb.last_login().gamesvr_version() == LogicConfig::Instance()->GetCfgLoginSvr().m_iReloadVersion) {
-            if (TimeUtility::getCurrentUnixTimeStamp() > static_cast<time_t>(tb.login_time()) &&
-                TimeUtility::getCurrentUnixTimeStamp() - static_cast<time_t>(tb.login_time()) <
-                LogicConfig::Instance()->GetCfgLoginSvr().m_tReloginExpireTime) {
-                m_iStartIndex = tb.last_login().gamesvr_index();
+        if (login_data_.has_last_login() &&
+            login_data_.last_login().gamesvr_version() == logic_config::me()->get_cfg_svr_login().reload_version) {
+            if (util::time::time_utility::get_now() > static_cast<time_t>(login_data_.login_time()) &&
+                util::time::time_utility::get_now() - static_cast<time_t>(login_data_.login_time()) <
+                    logic_config::me()->get_cfg_svr_login().relogin_expired_time) {
+                // use old index
             } else {
-                const std::vector<std::string> &gamesvr_urls = LogicConfig::Instance()->GetCfgLoginSvr().m_stDefaultGamesvrs;
+                const std::vector<std::string> &gamesvr_urls = logic_config::me()->get_cfg_svr_login().gamesvr_list;
                 if (!gamesvr_urls.empty()) {
-                    m_iStartIndex = RandomUtility::RandomBetween<uint32_t>(0, gamesvr_urls.size());
+                    login_data_.mutable_last_login()->set_gamesvr_index(util::random_engine::random_between<uint32_t>(0, gamesvr_urls.size()));
                 }
-                tb.mutable_last_login()->set_gamesvr_index(m_iStartIndex);
             }
         } else {
-            const std::vector<std::string> &gamesvr_urls = LogicConfig::Instance()->GetCfgLoginSvr().m_stDefaultGamesvrs;
+            const std::vector<std::string> &gamesvr_urls = logic_config::me()->get_cfg_svr_login().gamesvr_list;
             if (!gamesvr_urls.empty()) {
-                m_iStartIndex = RandomUtility::RandomBetween<uint32_t>(0, gamesvr_urls.size());
+                login_data_.mutable_last_login()->set_gamesvr_index(util::random_engine::random_between<uint32_t>(0, gamesvr_urls.size()));
+                login_data_.mutable_last_login()->set_gamesvr_version(logic_config::me()->get_cfg_svr_login().reload_version);
             }
-            tb.mutable_last_login()->set_gamesvr_index(m_iStartIndex);
-            tb.mutable_last_login()->set_gamesvr_version(LogicConfig::Instance()->GetCfgLoginSvr().m_iReloadVersion);
         }
 
         // 7. 如果在线则尝试踢出
-        if (0 != tb.login_pd()) {
-            int32_t ret = rpc::game::login::SendKickOff(tb.login_pd(), tb.openid(), moyo_no1::EN_KICKOFF_RELOGIN);
+        if (0 != login_data_.login_pd()) {
+            int32_t ret = rpc::game::player::send_kickoff(login_data_.login_pd(), login_data_.openid(), ::atframe::gateway::close_reason_t::EN_CRT_KICKOFF);
             if (ret) {
-                WLOGERROR("user %s send msg to 0x%x fail: %d", tb.openid().c_str(), tb.login_pd(), ret);
+                WLOGERROR("user %s send msg to 0x%llx fail: %d", login_data_.openid().c_str(),
+                          static_cast<unsigned long long>(login_data_.login_pd()), ret);
                 // 超出定时保存的时间间隔的3倍，视为服务器异常断开。直接允许登入
-                if (TimeUtility::getCurrentUnixTimeStamp() - static_cast<time_t>(tb.login_time()) <
-                    LogicConfig::Instance()->GetCfgLogic().m_iLoginCodeProtect) {
-                    SetRspCode(moyo_no1::EN_ERR_LOGIN_ALREADY_ONLINE);
-                    return moyo_no1::err::EN_USER_KICKOUT;
+                if (util::time::time_utility::get_now() - static_cast<time_t>(login_data_.login_time()) <
+                    logic_config::me()->get_cfg_logic().session_login_code_protect) {
+                    set_rsp_code(hello::EN_ERR_LOGIN_ALREADY_ONLINE);
+                    return hello::err::EN_PLAYER_KICKOUT;
                 } else {
-                    WLOGWARNING("user %s send kickoff failed, but login time timeout, conitnue login.", tb.openid().c_str());
+                    WLOGWARNING("user %s send kickoff failed, but login time timeout, conitnue login.", login_data_.openid().c_str());
                 }
             } else {
                 // 8. 验证踢出后的登入pd
-                tb.Clear();
-                res = rpc::db::login::Get(stMsgBody.open_id().c_str(), tb, m_strVersion);
+                login_data_.Clear();
+                res = rpc::db::login::get(msg_body.open_id().c_str(), login_data_, version_);
                 if (res < 0) {
-                    WLOGERROR("call login rpc method failed, msg: %s", stMsgBody.DebugString().c_str());
-                    SetRspCode(moyo_no1::EN_ERR_SYSTEM);
+                    WLOGERROR("call login rpc method failed, msg: %s", msg_body.DebugString().c_str());
+                    set_rsp_code(hello::EN_ERR_SYSTEM);
                     return res;
                 }
-                if (0 != tb.login_pd()) {
-                    WLOGERROR("user %s loginout failed.", stMsgBody.open_id().c_str());
+                if (0 != login_data_.login_pd()) {
+                    WLOGERROR("user %s loginout failed.", msg_body.open_id().c_str());
                     // 踢下线失败的错误码
-                    SetRspCode(moyo_no1::EN_ERR_LOGIN_ALREADY_ONLINE);
-                    return moyo_no1::err::EN_USER_KICKOUT;
+                    set_rsp_code(hello::EN_ERR_LOGIN_ALREADY_ONLINE);
+                    return hello::err::EN_PLAYER_KICKOUT;
                 }
             }
         }
@@ -248,79 +219,60 @@ int task_action_login_authorization::operator()(hello::message_container& msg) {
 
     // 9. 创建或更新登入信息（login_code）
     // 新用户则创建
-    if (moyo_no1::err::EN_DB_RECORD_NOT_FOUND == res) {
-        // TODO 和机器人名字相同
-        // auto robot = ConfigArenaIndex::Instance()->getRobotFight(stMsgBody.open_id());
-        // if(robot) {
-        // WLOGERROR("user %s eq robot_openid failed.", stMsgBody.open_id().c_str());
-        //// 账号名非法
-        // SetRspCode(moyo_no1::EN_ERR_LOGIN_OPENID);
-        // return moyo_no1::err::EN_USER_KICKOUT;
-        //}
-
-        // if (std::regex_match(stMsgBody.open_id(), std::regex("__robot__*"))) {
-        // WLOGERROR("user %s openid illegal.", stMsgBody.open_id().c_str());
-        // return moyo_no1::EN_ERR_LOGIN_OPENID;
-        //}
-
+    if (hello::err::EN_DB_RECORD_NOT_FOUND == res) {
         std::string uuid;
-        res = rpc::db::uuid::Generator(moyo_no1::EN_UUID_USER, uuid);
+        // 生成容易识别的数字UUID
+        res = rpc::db::uuid::generate(0 /** TODO hello::EN_UUID_USER**/, uuid);
         if (res || !uuid.size()) {
-            WLOGERROR("call Generator uuid rpc method failed, openid:%s, uuid:%s, res:%d", stMsgBody.open_id().c_str(), uuid.c_str(), res);
-            SetRspCode(moyo_no1::EN_ERR_UNKNOWN);
+            WLOGERROR("call Generator uuid rpc method failed, openid:%s, uuid:%s, res:%d", msg_body.open_id().c_str(), uuid.c_str(), res);
+            set_rsp_code(hello::EN_ERR_UNKNOWN);
             return res;
         }
 
-        res = rpc::db::uuid::HSetNXUUIdMapOpenId(moyo_no1::EN_UUID_USER, uuid, stMsgBody.open_id());
-        if (res) {
-            WLOGERROR("call uuid HSetNXUUIdMapOpenID rpc method failed, openid:%s, uuid:%s, res:%d", stMsgBody.open_id().c_str(),
-                      uuid.c_str(), res);
-            SetRspCode(moyo_no1::EN_ERR_UNKNOWN);
-            return res;
-        }
+        // TODO UUID 到openid的映射关系
+        //res = rpc::db::uuid::HSetNXUUIdMapOpenId(hello::EN_UUID_USER, uuid, msg_body.open_id());
+        //if (res) {
+        //    WLOGERROR("call uuid HSetNXUUIdMapOpenID rpc method failed, openid:%s, uuid:%s, res:%d", msg_body.open_id().c_str(),
+        //              uuid.c_str(), res);
+        //    set_rsp_code(hello::EN_ERR_UNKNOWN);
+        //    return res;
+        //}
 
-        init_login_data(tb, stMsgBody, uuid, channel_id);
+        init_login_data(login_data_, msg_body, uuid, channel_id);
 
         // 注册日志
-        LogMgr::WLOGRegister(stMsgBody.open_id(), uuid, LogicConfig::Instance()->GetSelfPd(), plat_id, channel_id,
-                             TimeUtility::getCurrentUnixTimeStamp(), stMsgBody.system_id());
+        WLOGINFO("player %s register account finished, uuid: %s, platform: %u, channel: %u, system: %d", msg_body.open_id().c_str(),
+                 uuid.c_str(), plat_id, channel_id, system_id
+        );
     }
 
     // 登入信息
     {
         // 登入码
-        tb.set_login_code(m_strLoginCode);
-        tb.set_login_code_expired(LogicConfig::Instance()->GetCfgLogic().m_iLoginCodeValidSec + TimeUtility::getCurrentUnixTimeStamp());
+        login_data_.set_login_code(login_code);
+        login_data_.set_login_code_expired(logic_config::me()->get_cfg_logic().session_login_code_valid_sec + util::time::time_utility::get_now());
 
         // 平台信息更新
-        ::moyo_no1::platform_information *plat_dst = tb.mutable_platform();
-        const ::moyo_no1::DPlatformData &plat_src = stMsgBody.platform();
+        ::hello::platform_information *plat_dst = login_data_.mutable_platform();
+        const ::hello::DPlatformData &plat_src = msg_body.platform();
 
-        plat_dst->set_platform_id(static_cast<moyo_no1::EnPlatformTypeID>(plat_id));
-        if (plat_src.has_access()) {
+        plat_dst->set_platform_id(static_cast<hello::EnPlatformTypeID>(plat_id));
+        if (!plat_src.access().empty()) {
             plat_dst->set_access(plat_src.access());
         }
-
-        plat_dst->set_version_type(m_iStrategyType);
-
-        // 苹果GameCenter更新
-        if (stMsgBody.has_apple_gamecenter() && !stMsgBody.apple_gamecenter().player_id().empty()) {
-            plat_dst->mutable_apple_gamecenter()->CopyFrom(stMsgBody.apple_gamecenter());
-        }
+        plat_dst->set_version_type(strategy_type_);
     }
 
     // 保存登入信息
-    res = rpc::db::login::Set(stMsgBody.open_id().c_str(), tb, m_strVersion);
+    res = rpc::db::login::set(msg_body.open_id().c_str(), login_data_, version_);
     if (res < 0) {
-        WLOGERROR("save login data for %s failed, msg:\n%s", stMsgBody.open_id().c_str(), tb.DebugString().c_str());
-        SetRspCode(moyo_no1::EN_ERR_SYSTEM);
+        WLOGERROR("save login data for %s failed, msg:\n%s", msg_body.open_id().c_str(), login_data_.DebugString().c_str());
+        set_rsp_code(hello::EN_ERR_SYSTEM);
         return res;
     }
 
-    m_iRegisterTime = tb.register_time();
-
     // 10.登入成功
-    return moyo_no1::err::EN_SUCCESS;
+    return hello::err::EN_SUCCESS;
 }
 
 int task_action_login_authorization::on_success() {

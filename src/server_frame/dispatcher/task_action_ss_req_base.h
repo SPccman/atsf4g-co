@@ -47,7 +47,7 @@ protected:
     virtual void send_rsp_msg();
 
 private:
-    std::string player_openid_;
+    mutable std::string player_openid_;
     mutable std::shared_ptr<player> player_inst_;
     std::list<msg_type> rsp_msgs_;
 };

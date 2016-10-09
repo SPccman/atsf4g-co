@@ -98,7 +98,6 @@ namespace rpc {
 
                 std::stringstream segs_debug_info;
 
-                char cmd[] = "EVALSHA";
                 DBPLAYERKEY(user_key, user_key_len, openid);
                 if (user_key_len <= 0) {
                     WLOGERROR("format db cmd failed, cmd %s", user_key);

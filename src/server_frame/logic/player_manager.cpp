@@ -128,7 +128,7 @@ int player_manager::save(player_ptr_t u, hello::table_login* login_tb, std::stri
         }
     }
 
-    if (static_cast<int>(login_tb->login_pd()) != self_bus_id) {
+    if (login_tb->login_pd() != self_bus_id) {
         WLOGERROR("user %s login pd error(expected: 0x%llx, real: 0x%llx)",
             u->get_open_id().c_str(),
             static_cast<unsigned long long>(self_bus_id),

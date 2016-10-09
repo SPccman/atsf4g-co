@@ -33,7 +33,7 @@ struct db_async_data_t {
 };
 
 static void _uv_close_and_free_callback(uv_handle_t* handle) {
-    ::free(handle);
+    delete (uv_timer_t*)handle;
 }
 
 #ifdef UTIL_CONFIG_COMPILER_CXX_STATIC_ASSERT
@@ -41,7 +41,7 @@ static void _uv_close_and_free_callback(uv_handle_t* handle) {
 static_assert(std::is_pod<db_async_data_t>::value, "db_async_data_t must be a pod, because it will stored in a buffer and will not call dtor fn");
 #endif
 
-db_msg_dispatcher::db_msg_dispatcher(): tick_timer_(NULL), tick_msg_count_(0), pack_cache_(NULL, 0) {
+db_msg_dispatcher::db_msg_dispatcher(): tick_timer_(NULL), tick_msg_count_(0) {
 }
 
 db_msg_dispatcher::~db_msg_dispatcher() {
@@ -52,15 +52,15 @@ db_msg_dispatcher::~db_msg_dispatcher() {
     }
 }
 
-const const char* db_msg_dispatcher::name() const UTIL_CONFIG_OVERRIDE {
+const char* db_msg_dispatcher::name() const {
     return "db_msg_dispatcher";
 }
 
-int32_t db_msg_dispatcher::init() UTIL_CONFIG_OVERRIDE {
+int32_t db_msg_dispatcher::init() {
     uv_loop_t* loop = uv_default_loop();
 
     if (NULL == tick_timer_) {
-        tick_timer_ = (uv_timer_t*)::malloc(sizeof(uv_timer_t));
+        tick_timer_ = new (std::nothrow)uv_timer_t();
         if (NULL == tick_timer_) {
             WLOGERROR("malloc timer failed");
             return hello::err::EN_SYS_MALLOC;
@@ -86,7 +86,7 @@ int32_t db_msg_dispatcher::init() UTIL_CONFIG_OVERRIDE {
         } while(false);
 
         if (0 != res) {
-            ::free(tick_timer_);
+            delete tick_timer_;
             tick_timer_ = NULL;
         }
     }
@@ -97,7 +97,7 @@ int32_t db_msg_dispatcher::init() UTIL_CONFIG_OVERRIDE {
     return hello::err::EN_SUCCESS;
 }
 
-int db_msg_dispatcher::tick() UTIL_CONFIG_OVERRIDE {
+int db_msg_dispatcher::tick() {
     tick_msg_count_ = 0;
     int prev_count = -1;
 
@@ -110,7 +110,7 @@ int db_msg_dispatcher::tick() UTIL_CONFIG_OVERRIDE {
     return tick_msg_count_;
 }
 
-int32_t db_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) UTIL_CONFIG_OVERRIDE {
+int32_t db_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) {
     const db_async_data_t* req = reinterpret_cast<const db_async_data_t*>(msg_buf);
     if (0 == msg_size || NULL == msg_container) {
         WLOGERROR("db async param error");
@@ -172,7 +172,7 @@ int32_t db_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_b
     return ret;
 }
 
-uint64_t db_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+uint64_t db_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) {
     if (NULL == msg_container || !msg_container->has_src_server()) {
         return 0;
     }
@@ -180,15 +180,15 @@ uint64_t db_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) UTIL_CO
     return msg_container->src_server().dst_task_id();
 }
 
-const std::string& db_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+const std::string& db_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) {
     return get_empty_string();
 }
 
-db_msg_dispatcher::msg_type_t db_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+db_msg_dispatcher::msg_type_t db_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) {
     return 0;
 }
 
-db_msg_dispatcher::msg_type_t db_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) UTIL_CONFIG_OVERRIDE {
+db_msg_dispatcher::msg_type_t db_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) {
     return 0;
 }
 
@@ -593,7 +593,7 @@ int db_msg_dispatcher::raw_init(const std::vector<logic_config::LC_DBCONN>& conn
 
     return hello::err::EN_SYS_INIT;
 }
-void db_msg_dispatcher::raw_request_callback(struct redisAsyncContext *c, void *r, void *privdata) {
+void db_msg_dispatcher::raw_request_callback(hiredis::happ::cmd_exec* , struct redisAsyncContext *c, void *r, void *privdata) {
     redisReply* reply = reinterpret_cast<redisReply*>(r);
     db_async_data_t* req = reinterpret_cast<db_async_data_t*>(privdata);
 

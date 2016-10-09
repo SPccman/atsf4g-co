@@ -25,7 +25,7 @@ int task_manager::init() {
 int task_manager::start_task(id_t task_id, hello::message_container& msg) {
     int res = native_mgr_->start(task_id, &msg);
     if (res < 0) {
-        WLOGERROR("start task 0x%llx failed.", reinterpret_cast<unsigned long long>(task_id));
+        WLOGERROR("start task 0x%llx failed.", static_cast<unsigned long long>(task_id));
 
         // 错误码
         return hello::err::EN_SYS_NOTFOUND;
@@ -37,7 +37,7 @@ int task_manager::start_task(id_t task_id, hello::message_container& msg) {
 int task_manager::resume_task(id_t task_id, hello::message_container& msg) {
     int res = native_mgr_->resume(task_id, &msg);
     if (res < 0) {
-        WLOGERROR("resume task 0x%llx failed.", reinterpret_cast<unsigned long long>(task_id));
+        WLOGERROR("resume task 0x%llx failed.", static_cast<unsigned long long>(task_id));
 
         // 错误码
         return hello::err::EN_SYS_NOTFOUND;

@@ -1,5 +1,5 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <log/log_wrapper.h>
@@ -24,9 +24,6 @@ task_action_player_kickoff::task_action_player_kickoff() {}
 task_action_player_kickoff::~task_action_player_kickoff() {}
 
 int task_action_player_kickoff::operator()(hello::message_container& msg) {
-    const msg_type& req = get_request();
-    const ::hello::SSPlayerKickOffReq& req_body = req.ssmsg().body().mss_player_kickoff_req();
-
     player::ptr_t user = get_player();
     if(!user) {
         WLOGERROR("user %s not found, maybe already logout.", get_player_openid().c_str());

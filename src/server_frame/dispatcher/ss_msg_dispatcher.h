@@ -18,13 +18,18 @@ namespace atbus {
     }
 }
 
-class ss_msg_dispatcher UTIL_CONFIG_FINAL : public dispatcher_implement, public util::design_pattern::singleton<ss_msg_dispatcher> {
+class ss_msg_dispatcher : public dispatcher_implement, public util::design_pattern::singleton<ss_msg_dispatcher> {
 public:
     typedef dispatcher_implement::msg_ptr_t msg_ptr_t;
     typedef dispatcher_implement::msg_type_t msg_type_t;
 
+protected:
+    ss_msg_dispatcher();
+
 public:
-    virtual const const char* name() const UTIL_CONFIG_OVERRIDE;
+    virtual ~ss_msg_dispatcher();
+
+    virtual const char* name() const UTIL_CONFIG_OVERRIDE;
     virtual int32_t init() UTIL_CONFIG_OVERRIDE;
 
     /**

@@ -13,13 +13,20 @@ class player;
 
 class session {
 public:
-    typedef typedef std::shared_ptr<session> ptr_t;
+    typedef std::shared_ptr<session> ptr_t;
     struct key_t {
         uint64_t bus_id;
         uint64_t session_id;
 
         key_t();
         key_t(const std::pair<uint64_t, uint64_t>& p);
+
+        bool operator==(const key_t& r) const;
+        bool operator!=(const key_t& r) const;
+        bool operator<(const key_t& r) const;
+        bool operator<=(const key_t& r) const;
+        bool operator>(const key_t& r) const;
+        bool operator>=(const key_t& r) const;
     };
 
 public:
@@ -55,6 +62,7 @@ public:
 
     struct compare_callback {
         bool operator()(const key_t &l, const key_t &r) const;
+        size_t operator()(const key_t &hash_obj) const;
     };
 
     int32_t send_kickoff(int32_t reason);

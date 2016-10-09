@@ -30,7 +30,7 @@ namespace hiredis {
     }
 }
 
-class db_msg_dispatcher UTIL_CONFIG_FINAL : public dispatcher_implement, public util::design_pattern::singleton<db_msg_dispatcher> {
+class db_msg_dispatcher : public dispatcher_implement, public util::design_pattern::singleton<db_msg_dispatcher> {
 public:
     typedef dispatcher_implement::msg_ptr_t msg_ptr_t;
     typedef dispatcher_implement::msg_type_t msg_type_t;
@@ -54,10 +54,11 @@ public:
 
 protected:
     db_msg_dispatcher();
-    ~db_msg_dispatcher();
 
 public:
-    virtual const const char* name() const UTIL_CONFIG_OVERRIDE;
+    virtual ~db_msg_dispatcher();
+
+    virtual const char* name() const UTIL_CONFIG_OVERRIDE;
     virtual int32_t init() UTIL_CONFIG_OVERRIDE;
 
     /**
@@ -219,7 +220,7 @@ private:
 
     // raw
     int raw_init(const std::vector<logic_config::LC_DBCONN>& conns, int index);
-    static void raw_request_callback(struct redisAsyncContext *c, void *r, void *privdata);
+    static void raw_request_callback(hiredis::happ::cmd_exec* , struct redisAsyncContext *c, void *r, void *privdata);
     static void raw_on_connect(hiredis::happ::raw *c, hiredis::happ::connection*);
     static void raw_on_connected(hiredis::happ::raw *c, hiredis::happ::connection*, const struct redisAsyncContext*, int status);
 

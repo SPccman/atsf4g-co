@@ -101,7 +101,7 @@ public:
      */
     template <typename TAction>
     int register_action(const std::string& msg_name) {
-        return _register_action(msg_name_to_type_id(msg_name), task_manager::me()->make_task_creator<TAction>());
+        return _register_action(msg_name, task_manager::me()->make_task_creator<TAction>());
     }
 
     /**
@@ -123,7 +123,7 @@ protected:
 
 private:
 
-    int _register_action(msg_type_t msg_type_id, task_manager::action_creator_t action);
+    int _register_action(const std::string& msg_name, task_manager::action_creator_t action);
 
 private:
     msg_action_set_t action_name_map_;

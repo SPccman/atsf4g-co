@@ -16,15 +16,18 @@
 #include <config/extern_service_types.h>
 #include <config/atframe_service_types.h>
 
-const const char* ss_msg_dispatcher::name() const UTIL_CONFIG_OVERRIDE {
+ss_msg_dispatcher::ss_msg_dispatcher() {}
+ss_msg_dispatcher::~ss_msg_dispatcher() {}
+
+const char* ss_msg_dispatcher::name() const {
     return "ss_msg_dispatcher";
 }
 
-int32_t ss_msg_dispatcher::init() UTIL_CONFIG_OVERRIDE {
+int32_t ss_msg_dispatcher::init() {
     return 0;
 }
 
-int32_t ss_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) UTIL_CONFIG_OVERRIDE {
+int32_t ss_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_buf, size_t msg_size) {
     if (NULL == msg_container) {
         WLOGERROR("parameter error");
         return hello::err::EN_SYS_PARAM;
@@ -38,7 +41,7 @@ int32_t ss_msg_dispatcher::unpack_msg(msg_ptr_t msg_container, const void* msg_b
     return hello::err::EN_SUCCESS;
 }
 
-uint64_t ss_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+uint64_t ss_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) {
     if (NULL == msg_container || !msg_container->has_src_server()) {
         return 0;
     }
@@ -46,7 +49,7 @@ uint64_t ss_msg_dispatcher::pick_msg_task(const msg_ptr_t msg_container) UTIL_CO
     return msg_container->src_server().dst_task_id();
 }
 
-const std::string& ss_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+const std::string& ss_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_container) {
     if (NULL == msg_container) {
         return get_empty_string();
     }
@@ -75,7 +78,7 @@ const std::string& ss_msg_dispatcher::pick_msg_name(const msg_ptr_t msg_containe
     return output[0]->name();
 }
 
-ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) UTIL_CONFIG_OVERRIDE {
+ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::pick_msg_type_id(const msg_ptr_t msg_container) {
     if (NULL == msg_container) {
         return 0;
     }
@@ -104,7 +107,7 @@ ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::pick_msg_type_id(const msg_ptr_
     return static_cast<msg_type_t>(output[0]->number());
 }
 
-ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) UTIL_CONFIG_OVERRIDE {
+ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) {
     hello::SSMsgBody empty_body;
     const google::protobuf::FieldDescriptor* desc = empty_body.GetDescriptor()->FindFieldByName(msg_name);
     if (NULL == desc) {

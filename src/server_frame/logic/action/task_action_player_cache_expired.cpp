@@ -1,5 +1,5 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <fstream>
@@ -133,4 +133,5 @@ int task_action_player_cache_expired::on_failed() {
 
 int task_action_player_cache_expired::on_timeout() {
     WLOGWARNING("clear player cache task timeout, we will continue on next round.");
+    return 0;
 }

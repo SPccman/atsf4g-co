@@ -9,7 +9,7 @@
 #include <unordered_set>
 #define UTIL_ENV_AUTO_MAP(...) std::unordered_map<__VA_ARGS__>
 #define UTIL_ENV_AUTO_SET(...) std::unordered_set<__VA_ARGS__>
-
+#define UTIL_ENV_AUTO_UNORDERED 1
 #else
 
 #include <map>

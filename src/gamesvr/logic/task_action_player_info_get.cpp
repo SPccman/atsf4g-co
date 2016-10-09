@@ -1,5 +1,5 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <log/log_wrapper.h>
@@ -54,8 +54,8 @@ int task_action_player_info_get::operator()(hello::message_container& msg) {
         rsp_item->set_player_level(user->get_player_level());
         rsp_item->set_vip_level(user->get_player_vip_level());
 
-        uint32_t player_level_func_bound = user->get_player_level();
-        uint32_t player_vip_level_func_bound = user->get_player_vip_level();
+        // uint32_t player_level_func_bound = user->get_player_level();
+        // uint32_t player_vip_level_func_bound = user->get_player_vip_level();
 
         // TODO 审核版本功能全开
         //if (is_review_mode) {

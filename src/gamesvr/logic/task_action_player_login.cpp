@@ -1,5 +1,5 @@
 //
-// Created by 文韬 on 2016/10/6.
+// Created by owent on 2016/10/6.
 //
 
 #include <log/log_wrapper.h>
@@ -41,7 +41,6 @@ int task_action_player_login::operator()(hello::message_container& msg) {
 
     int res = 0;
     const ::hello::CSLoginReq& msg_body = req->body().mcs_login_req();
-    uint32_t curr_time = util::time::time_utility::get_now();
 
     // 先查找用户缓存，使用缓存。如果缓存正确则不需要拉取login表和user表
     player::ptr_t user = player_manager::me()->find(msg_body.open_id());
@@ -138,10 +137,9 @@ int task_action_player_login::operator()(hello::message_container& msg) {
 
         if (hello::err::EN_DB_RECORD_NOT_FOUND == res) {
             // 生成name到uuid的映射
-            uint32_t rando_count = 0;
             std::string nick_name = user->get_open_id() + " - Nickname"; // TODO random a name
             const std::string &uuid = tb.platform().profile().uuid();
-            // TODO 如果需要分配并设置数字UUID、随机nickname和建立名字和账号的对应关系， do it here
+            // TODO 如果需要分配并设置数字UUID、随机nickname和建立名字和账号的对应关系， do it here, 注意重名的重试
 
             user->get_platform_info().set_platform_id(tb.platform().platform_id());
             user->get_platform_info().set_channel_id(tb.platform().channel_id());
