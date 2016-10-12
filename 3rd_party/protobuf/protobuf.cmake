@@ -19,8 +19,8 @@ if (NOT WIN32 OR CYGWIN OR MINGW)
         PREBUILD_COMMAND "./autogen.sh"
         WORKING_DIRECTORY "${3RD_PARTY_PROTOBUF_PKG_DIR}"
         PREFIX_DIRECTORY "${3RD_PARTY_PROTOBUF_ROOT_DIR}"
-        SRC_DIRECTORY_NAME "protobuf-3.0.2"
-        TAR_URL "https://github.com/google/protobuf/releases/download/v3.0.2/protobuf-cpp-3.0.2.tar.gz"
+        SRC_DIRECTORY_NAME "protobuf-3.1.0"
+        TAR_URL "https://github.com/google/protobuf/releases/download/v3.1.0/protobuf-cpp-3.1.0.tar.gz"
     )
 else()
     find_package(Protobuf)

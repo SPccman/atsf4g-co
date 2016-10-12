@@ -45,5 +45,8 @@ if (PARAM.get_params_number() < N) { \
 }
 
 #define SIMULATOR_ERR_MSG() util::cli::shell_stream(std::cerr)()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED
+#define SIMULATOR_INFO_MSG() util::cli::shell_stream(std::cout)()<< util::cli::shell_font_style::SHELL_FONT_COLOR_GREEN
+#define SIMULATOR_WARN_MSG() util::cli::shell_stream(std::cout)()<< util::cli::shell_font_style::SHELL_FONT_COLOR_YELLOW
+#define SIMULATOR_TRACE_MSG() std::cout
 
 #endif //ATFRAMEWORK_LIBSIMULATOR_SIMULATOR_ACTIVE_H

@@ -108,8 +108,7 @@ ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::pick_msg_type_id(const msg_ptr_
 }
 
 ss_msg_dispatcher::msg_type_t ss_msg_dispatcher::msg_name_to_type_id(const std::string& msg_name) {
-    hello::SSMsgBody empty_body;
-    const google::protobuf::FieldDescriptor* desc = empty_body.GetDescriptor()->FindFieldByName(msg_name);
+    const google::protobuf::FieldDescriptor* desc = hello::SSMsgBody::descriptor()->FindFieldByName(msg_name);
     if (NULL == desc) {
         return 0;
     }

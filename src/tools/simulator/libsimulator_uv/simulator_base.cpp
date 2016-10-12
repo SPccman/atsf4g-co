@@ -7,6 +7,7 @@
 #include <std/foreach.h>
 #include <lock/lock_holder.h>
 #include <cli/cmd_option_phoenix.h>
+#include <time/time_utility.h>
 
 #include "simulator_active.h"
 
@@ -133,30 +134,6 @@ namespace detail {
     };
 }
 
-int simulator_base::init() {
-    // register inner cmd and helper msg
-    args_mgr_->bind_cmd("?, -h, --help, help", detail::help_func, this)
-        ->set_help_msg("show help message and exit");
-    args_mgr_->bind_cmd("--history, --history-file", util::cli::phoenix::assign<std::string>(shell_opts_.history_file))
-        ->set_help_msg("<file path> set command history file");
-    args_mgr_->bind_cmd("--protocol, --protocol-log", util::cli::phoenix::assign<std::string>(shell_opts_.protocol_log))
-        ->set_help_msg("<file path> set protocol log file");
-    args_mgr_->bind_cmd("-ni, --no-interactive", util::cli::phoenix::set_const<bool>(shell_opts_.no_interactive, true))
-        ->set_help_msg("disable interactive mode");
-    args_mgr_->bind_cmd("-f, --rf, --read-file", util::cli::phoenix::assign<std::string>(shell_opts_.read_file))
-        ->set_help_msg("read from file");
-    args_mgr_->bind_cmd("-c, --cmd", util::cli::phoenix::push_back<std::vector<std::string> >(shell_opts_.cmds))
-        ->set_help_msg("[cmd ...] add cmd to run");
-
-    reg_req()["!, sh"].bind(detail::on_sys_cmd_exec(this), "<command> [parameters...] execute a external command");
-    reg_req()["?, help"].bind(detail::on_sys_cmd_help(this), "show help message");
-    reg_req()["exit, quit"].bind(detail::on_sys_cmd_exit(this), "exit");
-    reg_req()["set_player"].bind(detail::on_sys_cmd_set_player(this), "<player id> set current player");
-
-    // register all protocol callbacks
-    ::proto::detail::simulator_activitor::active_all(this);
-}
-
 // graceful Exits
 static void simulator_setup_signal_func(int signo) {
     g_readline_signal_curr = signo;
@@ -179,7 +156,36 @@ static int simulator_setup_signal() {
     return 0;
 }
 
+int simulator_base::init() {
+    // register inner cmd and helper msg
+    args_mgr_->bind_cmd("?, -h, --help, help", detail::help_func, this)
+        ->set_help_msg("show help message and exit");
+    args_mgr_->bind_cmd("--history, --history-file", util::cli::phoenix::assign(shell_opts_.history_file))
+        ->set_help_msg("<file path> set command history file");
+    args_mgr_->bind_cmd("--protocol, --protocol-log", util::cli::phoenix::assign(shell_opts_.protocol_log))
+        ->set_help_msg("<file path> set protocol log file");
+    args_mgr_->bind_cmd("-ni, --no-interactive", util::cli::phoenix::set_const(shell_opts_.no_interactive, true))
+        ->set_help_msg("disable interactive mode");
+    args_mgr_->bind_cmd("-f, --rf, --read-file", util::cli::phoenix::assign<std::string>(shell_opts_.read_file))
+        ->set_help_msg("read from file");
+    args_mgr_->bind_cmd("-c, --cmd", util::cli::phoenix::push_back(shell_opts_.cmds))
+        ->set_help_msg("[cmd ...] add cmd to run");
+
+    reg_req()["!, sh"].bind(detail::on_sys_cmd_exec(this), "<command> [parameters...] execute a external command");
+    reg_req()["?, help"].bind(detail::on_sys_cmd_help(this), "show help message");
+    reg_req()["exit, quit"].bind(detail::on_sys_cmd_exit(this), "exit");
+    reg_req()["set_player"].bind(detail::on_sys_cmd_set_player(this), "<player id> set current player");
+
+    // register all protocol callbacks
+    ::proto::detail::simulator_activitor::active_all(this);
+
+    // setup signal
+    simulator_setup_signal();
+    return 0;
+}
+
 int simulator_base::run(int argc, const char* argv[]) {
+    util::time::time_utility::update(NULL);
     if (argc > 0) {
         exec_path_ = argv[0];
     }
@@ -187,9 +193,6 @@ int simulator_base::run(int argc, const char* argv[]) {
     if (is_closing_) {
         return 0;
     }
-
-    // setup signal
-    simulator_setup_signal();
 
     // startup interactive thread
     uv_thread_create(&thd_cmd_, libedit_thd_main, this);
@@ -224,7 +227,20 @@ int simulator_base::stop() {
 }
 
 bool simulator_base::insert_player(player_ptr_t player) {
+    util::time::time_utility::update(NULL);
     if (is_closing_) {
+        return false;
+    }
+
+    if (!player) {
+        return false;
+    }
+
+    if (this == player->owner_) {
+        return true;
+    }
+
+    if (NULL != player->owner_) {
         return false;
     }
 
@@ -234,10 +250,12 @@ bool simulator_base::insert_player(player_ptr_t player) {
 
     players_[player->get_id()] = player;
     connecting_players_.erase(player);
+    player->owner_ = this;
     return true;
 }
 
 void simulator_base::remove_player(const std::string& id, bool is_close) {
+    util::time::time_utility::update(NULL);
     // will do it in stop function
     if (is_closing_) {
         return;
@@ -255,10 +273,12 @@ void simulator_base::remove_player(const std::string& id, bool is_close) {
     if (iter->second == cmd_player_) {
         cmd_player_.reset();
     }
+    iter->second->owner_ = NULL;
     players_.erase(iter);
 }
 
 void simulator_base::remove_player(player_ptr_t player) {
+    util::time::time_utility::update(NULL);
     // will do it in stop function
     if (is_closing_ || !player) {
         return;
@@ -288,6 +308,7 @@ void simulator_base::libuv_on_async_cmd(uv_async_t* handle) {
     assert(self);
 
     while (true) {
+        util::time::time_utility::update(NULL);
         std::pair<player_ptr_t, std::string> cmd;
         {
             util::lock::lock_holder<util::lock::spin_lock> holder(self->shell_cmd_manager_.lock);
@@ -348,7 +369,8 @@ char **simulator_base::libedit_completion(const char* text, int start, int end) 
 
     // 如果无响应命令，且允许列举文件列表则响应列举目录占位符
     if (g_readline_complete_list.empty()) {
-        return rl_completion_matches(cur.c_str(), rl_filename_completion_function);
+        // 已经找到节点关系的部分不再需要了
+        return rl_completion_matches(text + ss.tellp() - full_cmd.size(), rl_filename_completion_function);
     }
 
     return rl_completion_matches(text, libedit_complete_cmd_generator);

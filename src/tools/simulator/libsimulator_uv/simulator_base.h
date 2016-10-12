@@ -167,7 +167,7 @@ public:
         return *reinterpret_cast<cmd_sender_t*>(param.get_ext_param());
     }
 
-    void write_protocol(const msg_t& msg) {
+    void write_protocol(const msg_t& msg, bool incoming) {
         const std::string& text = dump_message(msg);
         if(text.empty() || shell_opts_.protocol_log.empty()) {
             return;
@@ -178,8 +178,20 @@ public:
         }
 
         if (proto_file.is_open()) {
-            proto_file<< "======================================"<< std::endl<< text<< std::endl;
+            if (incoming) {
+                proto_file<< "<<<<<<<<<<<<"<< std::endl;
+            } else {
+                proto_file<< ">>>>>>>>>>>>"<< std::endl;
+            }
+            proto_file<< text<< std::endl;
         }
+
+        if (incoming) {
+            std::cout<< "<<<<<<<<<<<<"<< std::endl;
+        } else {
+            std::cout<< ">>>>>>>>>>>>"<< std::endl;
+        }
+        std::cout<< text<< std::endl;
     }
 
     virtual int dispatch_message(simulator_base::player_ptr_t bp, const void* buffer, size_t sz) UTIL_CONFIG_OVERRIDE {
@@ -190,7 +202,7 @@ public:
             return ret;
         }
 
-        write_protocol(msg);
+        write_protocol(msg, true);
         return dispatch_message(player, msg);
     }
 
@@ -223,8 +235,13 @@ public:
         for(std::list<msg_t>::iterator iter = sender.requests.begin(); sender.player && iter != sender.requests.end(); ++ iter) {
             size_t msg_len = get_msg_buffer().size();
             if (pack_message(*iter, &get_msg_buffer()[0], msg_len) >= 0) {
-                write_protocol(*iter);
-                sender.player->on_write_message(&get_msg_buffer()[0], msg_len);
+                write_protocol(*iter, false);
+                int res = sender.player->on_write_message(&get_msg_buffer()[0], msg_len);
+                if (res < 0) {
+                    util::cli::shell_stream ss(std::cerr);
+                    ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player "
+                        << sender.player->get_id()<< " try to send data failed, res: "<< res<< std::endl;
+                }
             }
         }
     }

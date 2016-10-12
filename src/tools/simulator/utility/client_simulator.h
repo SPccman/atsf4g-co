@@ -7,9 +7,8 @@
 
 #pragma once
 
-#include <protocol/pbdesc/com.protocol.pb.h>
-
 #include <simulator_base.h>
+#include <simulator_active.h>
 
 #include "client_player.h"
 
@@ -20,6 +19,7 @@ public:
     typedef typename base_type::player_t player_t;
     typedef typename base_type::player_ptr_t player_ptr_t;
     typedef typename base_type::msg_t msg_t;
+    typedef typename base_type::cmd_sender_t cmd_sender_t;
 
 public:
     virtual ~client_simulator();
@@ -28,11 +28,21 @@ public:
     virtual std::string pick_message_name(const msg_t& msg) const;
     virtual const std::string& dump_message(const msg_t& msg);
 
-    virtual int pack_message(const msg_t& msg, void* buffer, size_t& sz) const = 0;
-    virtual int unpack_message(msg_t& msg, const void* buffer, size_t sz) const = 0;
+    virtual int pack_message(const msg_t& msg, void* buffer, size_t& sz) const;
+    virtual int unpack_message(msg_t& msg, const void* buffer, size_t sz) const;
 
     static client_simulator* cast(simulator_base* b);
+    static cmd_sender_t& get_cmd_sender(util::cli::callback_param params);
+    static msg_t& add_req(cmd_sender_t& sender);
+    static msg_t& add_req(util::cli::callback_param params);
 };
 
+#define SIMULATOR_CHECK_PLAYER_PARAMNUM(PARAM, N) \
+    if(!client_simulator::get_cmd_sender(PARAM).player) { \
+        util::cli::shell_stream(std::cerr)()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED \
+        << "this command require a player." << std::endl; \
+        return; \
+    }\
+    SIMULATOR_CHECK_PARAMNUM(PARAM, N)
 
 #endif //ATFRAMEWORK_LIBSIMULATOR_UTILITY_CLIENT_SIMULATOR_H
