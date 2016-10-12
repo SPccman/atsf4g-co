@@ -12,7 +12,7 @@
 #include "simulator_base.h"
 #include "simulator_player_impl.h"
 
-simulator_player_impl::simulator_player_impl(): is_closing_(false), port_(0), owner_(NULL), network_id_(0) {
+simulator_player_impl::simulator_player_impl(): is_closing_(false), owner_(NULL), network_id_(0) {
 }
 
 simulator_player_impl::~simulator_player_impl() {
@@ -102,7 +102,7 @@ void simulator_player_impl::libuv_on_connected(uv_connect_t *req, int status) {
             << "libuv_on_connected callback failed, msg: "<< uv_strerror(status)<< std::endl;
         fprintf(stderr, "libuv_tcp_connect_callback callback failed, msg: %s\n", uv_strerror(status));
 
-        self->on_connected(req, status);
+        self->on_connected(net, status);
         net->tcp_sock.data = self.get();
         self->close_net(net);
 
@@ -114,7 +114,7 @@ void simulator_player_impl::libuv_on_connected(uv_connect_t *req, int status) {
     uv_read_start(req->handle, simulator_player_impl::libuv_on_alloc, simulator_player_impl::libuv_on_read_data);
     net->is_connected = true;
 
-    int res = self->on_connected(req, status);
+    int res = self->on_connected(net, status);
     if (res < 0) {
         util::cli::shell_stream ss(std::cerr);
         ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED
@@ -195,7 +195,7 @@ void simulator_player_impl::libuv_on_dns_callback(uv_getaddrinfo_t *req, int sta
     }
 }
 
-int simulator_player_impl::on_disconnected(libuv_ptr_t net) {}
+int simulator_player_impl::on_disconnected(libuv_ptr_t net) { return 0; }
 
 void simulator_player_impl::on_close() {}
 void simulator_player_impl::on_closed() {}
@@ -210,7 +210,7 @@ int simulator_player_impl::connect(const std::string& host, int port) {
     libuv_ptr_t net = add_network();
     net->port = port;
     net->dns_req.data = new ptr_t(watcher_.lock());
-    assert(network_.dns_req.data);
+    assert(net->dns_req.data);
 
     int ret = uv_getaddrinfo(owner_->get_loop(), &net->dns_req, libuv_on_dns_callback, host.c_str(), NULL, NULL);
     if (0 != ret) {
@@ -227,7 +227,7 @@ int simulator_player_impl::connect(const std::string& host, int port) {
 }
 
 // ================= write data =================
-static void simulator_player_impl::libuv_on_written_data(uv_write_t *req, int status) {
+void simulator_player_impl::libuv_on_written_data(uv_write_t *req, int status) {
     ptr_t* self_sptr = reinterpret_cast<ptr_t*>(req->data);
     assert(self_sptr);
     req->data = NULL;
@@ -323,10 +323,10 @@ void simulator_player_impl::libuv_on_closed(uv_handle_t *handle) {
 
 simulator_player_impl::libuv_ptr_t simulator_player_impl::add_network() {
     libuv_ptr_t ret = std::make_shared<libuv_data_t>();
-    memset(ret->tcp_sock, 0, sizeof(ret->tcp_sock));
-    memset(ret->connect_req, 0, sizeof(ret->connect_req));
-    memset(ret->dns_req, 0, sizeof(ret->dns_req));
-    memset(ret->write_req, 0, sizeof(ret->write_req));
+    memset(&ret->tcp_sock, 0, sizeof(ret->tcp_sock));
+    memset(&ret->connect_req, 0, sizeof(ret->connect_req));
+    memset(&ret->dns_req, 0, sizeof(ret->dns_req));
+    memset(&ret->write_req, 0, sizeof(ret->write_req));
     ret->is_closing = false;
     ret->is_connected = false;
     ret->id = ++network_id_;

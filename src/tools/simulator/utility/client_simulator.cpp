@@ -36,7 +36,7 @@ std::string client_simulator::pick_message_name(const msg_t& msg) const {
     return output[0]->name();
 }
 
-const std::string& client_simulator::dump_message(const msg_t& msg) {
+std::string client_simulator::dump_message(const msg_t& msg) {
     return msg.DebugString();
 }
 

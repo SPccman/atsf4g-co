@@ -24,12 +24,12 @@ public:
 public:
     virtual ~client_simulator();
 
-    virtual uint32_t pick_message_id(const msg_t& msg) const;
-    virtual std::string pick_message_name(const msg_t& msg) const;
-    virtual const std::string& dump_message(const msg_t& msg);
+    virtual uint32_t pick_message_id(const msg_t& msg) const UTIL_CONFIG_OVERRIDE;
+    virtual std::string pick_message_name(const msg_t& msg) const UTIL_CONFIG_OVERRIDE;
+    virtual std::string dump_message(const msg_t& msg) UTIL_CONFIG_OVERRIDE;
 
-    virtual int pack_message(const msg_t& msg, void* buffer, size_t& sz) const;
-    virtual int unpack_message(msg_t& msg, const void* buffer, size_t sz) const;
+    virtual int pack_message(const msg_t& msg, void* buffer, size_t& sz) const UTIL_CONFIG_OVERRIDE;
+    virtual int unpack_message(msg_t& msg, const void* buffer, size_t sz) const UTIL_CONFIG_OVERRIDE;
 
     static client_simulator* cast(simulator_base* b);
     static cmd_sender_t& get_cmd_sender(util::cli::callback_param params);

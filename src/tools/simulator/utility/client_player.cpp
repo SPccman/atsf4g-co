@@ -205,8 +205,6 @@ libatgw_inner_v1_c_context client_player::mutable_proto_context(libuv_ptr_t net)
 }
 
 void client_player::destroy_proto_context(libuv_ptr_t net) {
-    libatgw_inner_v1_c_context ret;
-    ret.pi = 0;
     uint32_t id = 0;
     if (net) {
         id = net->id;

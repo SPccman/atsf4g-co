@@ -28,7 +28,8 @@ public:
     typedef std::function<void (util::cli::callback_param)> cmd_fn_t;
 
     struct cmd_wrapper_t {
-        typedef std::map<std::string, cmd_wrapper_t> value_type;
+        typedef std::shared_ptr<cmd_wrapper_t> ptr_t;
+        typedef std::map<std::string, ptr_t> value_type;
         value_type children;
         std::string name;
         std::shared_ptr<util::cli::cmd_option_ci> owner;
@@ -149,7 +150,7 @@ public:
     };
 
 public:
-    virtual ~simulator_msg_base();
+    virtual ~simulator_msg_base() {}
 
     bool insert_player(player_ptr_t player) {
         return simulator_base::insert_player<TPlayer>(player);
@@ -209,7 +210,7 @@ public:
     virtual int dispatch_message(player_ptr_t player, msg_t& msg) {
         uint32_t msg_id = pick_message_id(msg);
         if (msg_id != 0) {
-            std::map<uint32_t, rsp_fn_t>::iterator iter = msg_id_handles_.find(msg_id);
+            typename std::map<uint32_t, rsp_fn_t>::iterator iter = msg_id_handles_.find(msg_id);
             if (msg_id_handles_.end() != iter && iter->second) {
                 iter->second(player, msg);
             }
@@ -217,7 +218,7 @@ public:
 
         std::string msg_name = pick_message_name(msg);
         if (!msg_name.empty()) {
-            std::map<std::string, rsp_fn_t>::iterator iter = msg_name_handles_.find(msg_id);
+            typename std::map<std::string, rsp_fn_t>::iterator iter = msg_name_handles_.find(msg_name);
             if (msg_name_handles_.end() != iter && iter->second) {
                 iter->second(player, msg);
             }
@@ -232,11 +233,11 @@ public:
         sender.player = std::dynamic_pointer_cast<player_t>(p);
         get_cmd_manager()->start(cmd, true, &sender);
 
-        for(std::list<msg_t>::iterator iter = sender.requests.begin(); sender.player && iter != sender.requests.end(); ++ iter) {
+        for(typename std::list<msg_t>::iterator iter = sender.requests.begin(); sender.player && iter != sender.requests.end(); ++ iter) {
             size_t msg_len = get_msg_buffer().size();
             if (pack_message(*iter, &get_msg_buffer()[0], msg_len) >= 0) {
                 write_protocol(*iter, false);
-                int res = sender.player->on_write_message(&get_msg_buffer()[0], msg_len);
+                int res = sender.player->on_write_message(p->last_network(), &get_msg_buffer()[0], msg_len);
                 if (res < 0) {
                     util::cli::shell_stream ss(std::cerr);
                     ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player "
@@ -254,7 +255,7 @@ public:
         return std::string();
     }
 
-    virtual const std::string& dump_message(const msg_t& msg) { return std::string(); }
+    virtual std::string dump_message(const msg_t& msg) { return std::string(); }
 
     virtual int pack_message(const msg_t& msg, void* buffer, size_t& sz) const = 0;
     virtual int unpack_message(msg_t& msg, const void* buffer, size_t sz) const = 0;

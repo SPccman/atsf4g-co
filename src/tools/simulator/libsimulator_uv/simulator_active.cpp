@@ -17,7 +17,7 @@ namespace proto {
             get_all_active_fn().push_back(fn);
         }
 
-        static void simulator_activitor::active_all(simulator_base* base) {
+        void simulator_activitor::active_all(simulator_base* base) {
             for(std::list<fn_t>::iterator iter = get_all_active_fn().begin(); iter != get_all_active_fn().end(); ++iter) {
                 if (*iter) {
                     (*iter)(base);

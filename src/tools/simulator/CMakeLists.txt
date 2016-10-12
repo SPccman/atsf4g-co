@@ -44,7 +44,7 @@ elseif(MBEDTLS_FOUND)
 endif()
 
 add_executable(${SIMULATOR_SRC_BIN_NAME}
-    ${SRC_LIST}
+    ${SRC_LIST} ${PROJECT_3RD_PARTY_SRC_LIST}
 )
 
 target_link_libraries(${SIMULATOR_SRC_BIN_NAME}

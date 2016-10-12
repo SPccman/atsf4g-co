@@ -9,6 +9,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <std/smart_ptr.h>
 
 #include <uv.h>

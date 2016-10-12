@@ -20,7 +20,7 @@ static std::list<std::string> g_readline_complete_list;
 static int g_readline_signal_prev = 0;
 static int g_readline_signal_curr = 0;
 
-simulator_base::cmd_wrapper_t::cmd_wrapper_t(std::shared_ptr<util::cli::cmd_option_ci> o, const std::string& n): owner(o), name(n) {}
+simulator_base::cmd_wrapper_t::cmd_wrapper_t(std::shared_ptr<util::cli::cmd_option_ci> o, const std::string& n): name(n), owner(o) {}
 
 // create a child node
 simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::operator[](const std::string& name) {
@@ -28,10 +28,14 @@ simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::operator[](const s
         return (*this);
     }
 
-    cmd_wrapper_t& c = children[name];
-    c.owner = std::dynamic_pointer_cast<util::cli::cmd_option_ci>(owner->bind_child_cmd(name, util::cli::cmd_option_ci::create()));
-    c.name = name;
-    return c;
+    ptr_t cp = children[name];
+    if (!cp) {
+        cp =std::make_shared<cmd_wrapper_t>(
+            std::dynamic_pointer_cast<util::cli::cmd_option_ci>(
+                owner->bind_child_cmd(name, util::cli::cmd_option_ci::create())
+            ), name);
+    }
+    return *cp;
 }
 
 // bind a cmd handle
@@ -301,6 +305,8 @@ int simulator_base::insert_cmd(player_ptr_t player, const std::string& cmd) {
     // must be thread-safe
     util::lock::lock_holder<util::lock::spin_lock> holder(shell_cmd_manager_.lock);
     shell_cmd_manager_.cmds.push_back(std::pair<player_ptr_t, std::string>(player, cmd));
+
+    return 0;
 }
 
 void simulator_base::libuv_on_async_cmd(uv_async_t* handle) {
@@ -346,7 +352,7 @@ char **simulator_base::libedit_completion(const char* text, int start, int end) 
             break;
         }
 
-        parent = &iter->second;
+        parent = iter->second.get();
         prefix += full_cmd + " ";
         cur = "";
     }
