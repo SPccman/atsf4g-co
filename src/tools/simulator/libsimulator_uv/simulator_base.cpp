@@ -8,6 +8,7 @@
 #include <lock/lock_holder.h>
 #include <cli/cmd_option_phoenix.h>
 #include <time/time_utility.h>
+#include <common/string_oprs.h>
 
 #include "simulator_active.h"
 
@@ -28,7 +29,7 @@ simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::operator[](const s
         return (*this);
     }
 
-    ptr_t cp = children[name];
+    ptr_t& cp = children[name.c_str()];
     if (!cp) {
         cp =std::make_shared<cmd_wrapper_t>(
             std::dynamic_pointer_cast<util::cli::cmd_option_ci>(
@@ -73,7 +74,9 @@ simulator_base::~simulator_base() {
 namespace detail {
     // 绑定的输出函数
     static void help_func(util::cli::callback_param stParams, simulator_base* self) {
-        std::cout<< "usage: " << self->get_exec()<< " [options...]"<<  std::endl;
+        util::cli::shell_stream(std::cout)()<< util::cli::shell_font_style::SHELL_FONT_COLOR_YELLOW<< util::cli::shell_font_style::SHELL_FONT_SPEC_BOLD<< "Usage: " << self->get_exec()<< " [options...]"<<  std::endl;
+        self->get_option_manager()->set_help_cmd_style(util::cli::shell_font_style::SHELL_FONT_COLOR_MAGENTA | util::cli::shell_font_style::SHELL_FONT_SPEC_BOLD);
+
         std::cout<< *self->get_option_manager()<< std::endl;
 
         // 立即退出
@@ -88,6 +91,7 @@ namespace detail {
             // 指令
             std::cout<< "Usage:"<< std::endl;
             std::cout<< "Commands:"<< std::endl;
+            owner->get_cmd_manager()->set_help_cmd_style(util::cli::shell_font_style::SHELL_FONT_COLOR_YELLOW | util::cli::shell_font_style::SHELL_FONT_SPEC_BOLD);
             std::cout<< *owner->get_cmd_manager()<< std::endl;
         }
     };
@@ -345,10 +349,9 @@ char **simulator_base::libedit_completion(const char* text, int start, int end) 
     simulator_base::cmd_wrapper_t::value_type::iterator iter;
     while(ss >> cur) {
         full_cmd = cur;
-        std::transform(cur.begin(), cur.end(), cur.begin(), ::toupper);
 
-        iter = parent->children.find(cur);
-        if (iter == g_last_simulator->reg_req().children.end()) {
+        iter = parent->children.find(cur.c_str());
+        if (iter == parent->children.end()) {
             break;
         }
 
@@ -360,12 +363,12 @@ char **simulator_base::libedit_completion(const char* text, int start, int end) 
 
     // 查找不完整词
     if (cur.size() > 0) {
-        iter = parent->children.lower_bound(cur);
+        iter = parent->children.lower_bound(cur.c_str());
     }
 
     while (iter != parent->children.end()) {
-        if (cur == iter->first.substr(0, cur.size())) {
-            g_readline_complete_list.push_back(iter->first);
+        if (0 == UTIL_STRFUNC_STRNCASE_CMP(cur.c_str(), iter->first.c_str(), cur.size())) {
+            g_readline_complete_list.push_back(iter->first.c_str());
         } else {
             break;
         }
@@ -407,6 +410,9 @@ char* simulator_base::libedit_complete_cmd_generator(const char* text, int state
 void simulator_base::libedit_thd_main(void* arg) {
     simulator_base* self = reinterpret_cast<simulator_base*>(arg);
     assert(self);
+
+    // setup signal again
+    simulator_setup_signal();
 
     if (!self->shell_opts_.cmds.empty()) {
         owent_foreach(std::string& cmd, self->shell_opts_.cmds) {

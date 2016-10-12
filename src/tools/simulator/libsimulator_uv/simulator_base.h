@@ -29,7 +29,7 @@ public:
 
     struct cmd_wrapper_t {
         typedef std::shared_ptr<cmd_wrapper_t> ptr_t;
-        typedef std::map<std::string, ptr_t> value_type;
+        typedef std::map<util::cli::cmd_option_ci_string, ptr_t> value_type;
         value_type children;
         std::string name;
         std::shared_ptr<util::cli::cmd_option_ci> owner;
