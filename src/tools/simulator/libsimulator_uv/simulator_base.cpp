@@ -9,66 +9,16 @@
 #include <cli/cmd_option_phoenix.h>
 #include <time/time_utility.h>
 #include <common/string_oprs.h>
+#include <common/file_system.h>
+#include <cli/cmd_option.h>
 
 #include "simulator_active.h"
 
 #include "simulator_base.h"
 
-#include <editline/readline.h>
+#include "linenoise.h"
 
 static simulator_base* g_last_simulator = NULL;
-static std::list<std::string> g_readline_complete_list;
-static int g_readline_signal_prev = 0;
-static int g_readline_signal_curr = 0;
-
-simulator_base::cmd_wrapper_t::cmd_wrapper_t(std::shared_ptr<util::cli::cmd_option_ci> o, const std::string& n): name(n), owner(o) {}
-
-// create a child node
-simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::operator[](const std::string& name) {
-    if (!owner) {
-        return (*this);
-    }
-
-    ptr_t& cp = children[name.c_str()];
-    if (!cp) {
-        cp =std::make_shared<cmd_wrapper_t>(
-            std::dynamic_pointer_cast<util::cli::cmd_option_ci>(
-                owner->bind_child_cmd(name, util::cli::cmd_option_ci::create())
-            ), name);
-    }
-    return *cp;
-}
-
-// bind a cmd handle
-simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::bind(cmd_fn_t fn, const std::string& description) {
-    if (owner) {
-        owner->bind_cmd(name, fn)->set_help_msg(description.c_str());
-    }
-
-    return (*this);
-}
-
-simulator_base::simulator_base():is_closing_(false), exec_path_(NULL) {
-    uv_loop_init(&loop_);
-    uv_async_init(&loop_, &async_cmd_, libuv_on_async_cmd);
-    async_cmd_.data = this;
-
-    cmd_mgr_ = util::cli::cmd_option_ci::create();
-    args_mgr_ = util::cli::cmd_option::create();
-    root_ = std::make_shared<cmd_wrapper_t>(cmd_mgr_, std::string());
-
-    shell_opts_.history_file = ".simulator_history";
-    shell_opts_.protocol_log = "protocol.log";
-    shell_opts_.no_interactive = false;
-    shell_opts_.buffer_.resize(65536);
-    g_last_simulator = this;
-}
-
-simulator_base::~simulator_base() {
-    if (this == g_last_simulator) {
-        g_last_simulator = NULL;
-    }
-}
 
 
 namespace detail {
@@ -119,8 +69,6 @@ namespace detail {
 
         void operator()(util::cli::callback_param params) {
             owner->stop();
-
-            raise(SIGTERM);
         }
     };
 
@@ -140,28 +88,160 @@ namespace detail {
             owner->set_current_player(player);
         }
     };
+
+    struct on_sys_cmd_unknown {
+        simulator_base* owner;
+        on_sys_cmd_unknown(simulator_base* s): owner(s) {}
+
+        void operator()(util::cli::callback_param params) {
+            SIMULATOR_ERR_MSG()<< params.get("@ErrorMsg")->to_cpp_string()<< std::endl;
+        }
+    };
+
+    struct on_default_cmd_error {
+        util::cli::cmd_option_ci *owner;
+        on_default_cmd_error(util::cli::cmd_option_ci * s): owner(s) {}
+
+        void operator()(util::cli::callback_param params) {
+            util::cli::shell_stream(std::cout)() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "Cmd Error."
+                                                 << std::endl;
+            const typename util::cli::cmd_option_list::cmd_array_type &cmd_arr = params.get_cmd_array();
+            size_t arr_sz = cmd_arr.size();
+            if (arr_sz < 2) {
+                owner->dump(std::cout, "")<< std::endl;
+                return;
+            }
+
+            std::stringstream ss;
+            for (size_t i = 1; i < arr_sz - 1; ++ i) {
+                if (!cmd_arr[i].first.empty()) {
+                    ss << cmd_arr[i].first << " ";
+                }
+            }
+
+            owner->dump(std::cout, ss.str())<< std::endl;
+        }
+    };
+}
+
+
+simulator_base::cmd_wrapper_t::cmd_wrapper_t(const std::string& n): parent(NULL), name(n){}
+
+// create a child node
+simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::operator[](const std::string& nm) {
+    std::vector<std::string> cmds = util::cli::cmd_option_ci::split_cmd(nm.c_str());
+    if (cmds.empty()) {
+        return *this;
+    }
+
+    ptr_t child;
+    owent_foreach(std::string& cmd_name, cmds) {
+        value_type::iterator iter = children.find(cmd_name.c_str());
+        if (children.end() != iter) {
+            child = iter->second;
+            break;
+        }
+    }
+
+    if (child && 1 == cmds.size()) {
+        return *child;
+    }
+
+    if (!child) {
+        child = std::make_shared<cmd_wrapper_t>(nm);
+        child->cmd_node = util::cli::cmd_option_ci::create();
+        assert(child->cmd_node->empty());
+        child->parent = this;
+    }
+
+    owent_foreach(std::string& cmd_name, cmds) {
+        children[cmd_name.c_str()] = child;
+    }
+
+    return *child;
+}
+
+std::shared_ptr<util::cli::cmd_option_ci> simulator_base::cmd_wrapper_t::parent_node() {
+    if (NULL == parent) {
+        assert(cmd_node.get());
+        return cmd_node;
+    }
+
+    if (!parent->cmd_node->empty()) {
+        return parent->cmd_node;
+    } else {
+        // initialize parent binder
+        std::shared_ptr<util::cli::cmd_option_ci> ppmgr = parent->parent_node();
+
+        parent->cmd_node->bind_cmd("@OnError", detail::on_default_cmd_error(parent->cmd_node.get()));
+        assert(!parent->cmd_node->empty());
+        ppmgr->bind_child_cmd(parent->name, parent->cmd_node);
+    }
+
+    return parent->cmd_node;
+}
+
+// bind a cmd handle
+simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::bind(cmd_fn_t fn, const std::string& description) {
+    parent_node()->bind_cmd(name, fn)->set_help_msg(description.c_str());
+    return (*this);
+}
+
+simulator_base::cmd_wrapper_t& simulator_base::cmd_wrapper_t::hint(std::string h) {
+    hint_ = h;
+    return (*this);
+}
+
+simulator_base::simulator_base():is_closing_(false), exec_path_(NULL) {
+    uv_loop_init(&loop_);
+    uv_async_init(&loop_, &async_cmd_, libuv_on_async_cmd);
+    uv_mutex_init(&async_cmd_lock_);
+    async_cmd_.data = this;
+
+    cmd_mgr_ = util::cli::cmd_option_ci::create();
+    args_mgr_ = util::cli::cmd_option::create();
+    root_ = std::make_shared<cmd_wrapper_t>(std::string());
+    root_->cmd_node = cmd_mgr_;
+
+    shell_opts_.history_file = ".simulator_history";
+    shell_opts_.protocol_log = "protocol.log";
+    shell_opts_.no_interactive = false;
+    shell_opts_.buffer_.resize(65536);
+
+    signals_.is_used = false;
+
+    g_last_simulator = this;
+}
+
+simulator_base::~simulator_base() {
+    uv_mutex_destroy(&async_cmd_lock_);
+
+    if (this == g_last_simulator) {
+        g_last_simulator = NULL;
+    }
 }
 
 // graceful Exits
-static void simulator_setup_signal_func(int signo) {
-    g_readline_signal_curr = signo;
-}
+static void simulator_setup_signal_func(uv_signal_t* handle, int signum) {
+    switch (signum) {
+        case SIGINT: {
+            break;
+        }
 
-static int simulator_setup_signal() {
-    // block signals
-    signal(SIGTERM, simulator_setup_signal_func);
-    signal(SIGINT, simulator_setup_signal_func);
-
+        case SIGTERM:
 #ifndef WIN32
-    signal(SIGQUIT, simulator_setup_signal_func);
-    signal(SIGHUP, SIG_IGN);  // lost parent process
-    signal(SIGPIPE, SIG_IGN); // close stdin, stdout or stderr
-    signal(SIGTSTP, SIG_IGN); // close tty
-    signal(SIGTTIN, SIG_IGN); // tty input
-    signal(SIGTTOU, SIG_IGN); // tty output
+        case SIGQUIT:
 #endif
+        {
+            simulator_base* base = (simulator_base*)handle->data;
+            base->insert_cmd(base->get_current_player(), "quit");
+            break;
+        }
 
-    return 0;
+        default: {
+            break;
+        }
+    }
 }
 
 int simulator_base::init() {
@@ -179,17 +259,44 @@ int simulator_base::init() {
     args_mgr_->bind_cmd("-c, --cmd", util::cli::phoenix::push_back(shell_opts_.cmds))
         ->set_help_msg("[cmd ...] add cmd to run");
 
-    reg_req()["!, sh"].bind(detail::on_sys_cmd_exec(this), "<command> [parameters...] execute a external command");
+    reg_req()["!, sh"].bind(detail::on_sys_cmd_exec(this), "<command> [parameters...] execute a external command")
+        .autocomplete_.set(cmd_autocomplete_flag_t::EN_CACF_FILES, true);
     reg_req()["?, help"].bind(detail::on_sys_cmd_help(this), "show help message");
     reg_req()["exit, quit"].bind(detail::on_sys_cmd_exit(this), "exit");
     reg_req()["set_player"].bind(detail::on_sys_cmd_set_player(this), "<player id> set current player");
+    cmd_mgr_->bind_cmd("@OnError", detail::on_sys_cmd_unknown(this));
 
     // register all protocol callbacks
     ::proto::detail::simulator_activitor::active_all(this);
 
-    // setup signal
-    simulator_setup_signal();
     return 0;
+}
+
+void simulator_base::setup_signal() {
+    if (signals_.is_used) {
+        return;
+    }
+    signals_.is_used = true;
+
+    uv_signal_init(&loop_, &signals_.sigint);
+    uv_signal_init(&loop_, &signals_.sigquit);
+    uv_signal_init(&loop_, &signals_.sigterm);
+    signals_.sigint.data = this;
+    signals_.sigquit.data = this;
+    signals_.sigterm.data = this;
+
+    // block signals
+    uv_signal_start(&signals_.sigint, simulator_setup_signal_func, SIGINT);
+    uv_signal_start(&signals_.sigterm, simulator_setup_signal_func, SIGTERM);
+
+#ifndef WIN32
+    uv_signal_start(&signals_.sigquit, simulator_setup_signal_func, SIGQUIT);
+    signal(SIGHUP, SIG_IGN);  // lost parent process
+    signal(SIGPIPE, SIG_IGN); // close stdin, stdout or stderr
+    signal(SIGTSTP, SIG_IGN); // close tty
+    signal(SIGTTIN, SIG_IGN); // tty input
+    signal(SIGTTOU, SIG_IGN); // tty output
+#endif
 }
 
 int simulator_base::run(int argc, const char* argv[]) {
@@ -202,11 +309,26 @@ int simulator_base::run(int argc, const char* argv[]) {
         return 0;
     }
 
+    setup_signal();
+
     // startup interactive thread
-    uv_thread_create(&thd_cmd_, libedit_thd_main, this);
+    uv_thread_create(&thd_cmd_, linenoise_thd_main, this);
 
     int ret = uv_run(&loop_, UV_RUN_DEFAULT);
     uv_close((uv_handle_t*) &async_cmd_, NULL);
+
+    if (signals_.is_used) {
+        signals_.is_used = false;
+
+        uv_signal_stop(&signals_.sigint);
+        uv_close((uv_handle_t*)&signals_.sigint, NULL);
+
+        uv_signal_stop(&signals_.sigquit);
+        uv_close((uv_handle_t*)&signals_.sigquit, NULL);
+
+        uv_signal_stop(&signals_.sigterm);
+        uv_close((uv_handle_t*)&signals_.sigterm, NULL);
+    }
 
     uv_thread_join(&thd_cmd_);
     while(UV_EBUSY == uv_loop_close(&loop_)) {
@@ -309,7 +431,7 @@ int simulator_base::insert_cmd(player_ptr_t player, const std::string& cmd) {
     // must be thread-safe
     util::lock::lock_holder<util::lock::spin_lock> holder(shell_cmd_manager_.lock);
     shell_cmd_manager_.cmds.push_back(std::pair<player_ptr_t, std::string>(player, cmd));
-
+    uv_async_send(&async_cmd_);
     return 0;
 }
 
@@ -331,88 +453,184 @@ void simulator_base::libuv_on_async_cmd(uv_async_t* handle) {
 
         self->exec_cmd(cmd.first, cmd.second);
     }
+
+    uv_mutex_unlock(&self->async_cmd_lock_);
 }
 
 
-char **simulator_base::libedit_completion(const char* text, int start, int end) {
+void simulator_base::linenoise_completion(const char *buf, linenoiseCompletions *lc) {
+    linenoise_helper_t& res = linenoise_build_complete(buf, true, false);
+
+    owent_foreach(std::string& cmd, res.complete) {
+        linenoiseAddCompletion(lc, cmd.c_str());
+    }
+}
+
+char *simulator_base::linenoise_hint(const char *buf, int *color, int *bold) {
+    linenoise_helper_t& res = linenoise_build_complete(buf, false, true);
+
+    if (!res.hint.empty()) {
+        *color = 33;
+        *bold = 1;
+        return &res.hint[0];
+    }
+
+    return NULL;
+}
+
+simulator_base::linenoise_helper_t& simulator_base::linenoise_build_complete(const char* line, bool complete, bool hint) {
+    static linenoise_helper_t ret;
+    if (complete) {
+        ret.complete.clear();
+    }
+
+    if (hint) {
+        ret.hint.clear();
+    }
+
     if (NULL == g_last_simulator) {
-        return rl_completion_matches(text, libedit_complete_cmd_generator);
+        return ret;
     }
 
     // text 记录的是当前单词， rl_line_buffer 记录的是完整行
     // =========================
     std::stringstream ss;
-    ss.str(rl_line_buffer);
+    ss.str(line);
 
-    std::string cur, prefix, full_cmd;
     cmd_wrapper_t* parent = &g_last_simulator->reg_req();
-    simulator_base::cmd_wrapper_t::value_type::iterator iter;
-    while(ss >> cur) {
-        full_cmd = cur;
+    const char * last_matched = line;
+    const char * curr_matched = line;
+    std::string ident;
+    while(curr_matched && *curr_matched) {
+        curr_matched = util::cli::cmd_option_ci::get_segment(curr_matched, ident);
+        if (ident.empty()) {
+            break;
+        }
 
-        iter = parent->children.find(cur.c_str());
+        simulator_base::cmd_wrapper_t::value_type::iterator iter = parent->children.find(ident.c_str());
         if (iter == parent->children.end()) {
             break;
         }
 
         parent = iter->second.get();
-        prefix += full_cmd + " ";
-        cur = "";
+        last_matched = curr_matched;
+        ident.clear();
     }
-    iter = parent->children.begin();
-
     // 查找不完整词
-    if (cur.size() > 0) {
-        iter = parent->children.lower_bound(cur.c_str());
-    }
+    if (ident.size() > 0) {
+        cmd_wrapper_t::value_type::iterator iter = parent->children.lower_bound(ident.c_str());
+        std::string rule;
 
-    while (iter != parent->children.end()) {
-        if (0 == UTIL_STRFUNC_STRNCASE_CMP(cur.c_str(), iter->first.c_str(), cur.size())) {
-            g_readline_complete_list.push_back(iter->first.c_str());
-        } else {
-            break;
+        for (; iter != parent->children.end(); ++iter) {
+            if (iter->first.size() < ident.size()) {
+                continue;
+            }
+
+            if (iter->first.empty()) {
+                continue;
+            }
+
+            if(0 != UTIL_STRFUNC_STRNCASE_CMP(iter->first.c_str(), ident.c_str(), ident.size())) {
+                break;
+            }
+
+            if (hint && ret.hint.empty()) {
+                ret.hint += iter->first.c_str() + ident.size();
+
+                if (!complete) {
+                    break;
+                }
+            }
+
+            if (complete) {
+                rule.reserve(curr_matched - line + 1 + iter->first.size());
+                rule.assign(line, curr_matched);
+                rule += iter->first.c_str() + ident.size();
+                ret.complete.push_back(rule);
+            }
         }
 
-        ++ iter;
+        // file system complete
+        if (complete && ret.complete.empty() && parent->autocomplete_.test(cmd_autocomplete_flag_t::EN_CACF_FILES)) {
+            std::list<std::string> fls;
+            std::string prefix, dir;
+            prefix = curr_matched - ident.size();
+            // 枚举目录
+            if (!prefix.empty() && (prefix.back() == '/' || prefix.back() == '\\')) {
+                dir.swap(prefix);
+                dir.pop_back();
+            } else {
+                // 枚举文件前缀
+                util::file_system::dirname(prefix.c_str(), prefix.size(), dir);
+                if (!dir.empty() && dir.back() != '/' && dir.back() != '\\' && dir.back() != '.') {
+                    prefix = prefix.substr(dir.size() + 1);
+                } else {
+                    prefix = prefix.substr(dir.size());
+                }
+            }
+
+            util::file_system::scan_dir(dir.c_str(), fls);
+            owent_foreach(std::string &fl, fls) {
+                std::string fldir;
+                util::file_system::dirname(fl.c_str(), fl.size(), fldir);
+                const char* fl_name = fl.c_str();
+                if (!fldir.empty() && fl.size() >= fldir.size() + 1) {
+                    fl_name += fldir.size() + 1;
+                }
+                if (0 == UTIL_STRFUNC_STRNCASE_CMP(prefix.c_str(), fl_name, prefix.size())) {
+                    rule.assign(line, last_matched);
+                    rule += fl;
+                    ret.complete.push_back(rule);
+                }
+            }
+        }
+    } else {
+        // 子命令
+        if (complete) {
+            std::string rule;
+            cmd_wrapper_t::value_type::iterator iter = parent->children.begin();
+            for (; iter != parent->children.end(); ++iter) {
+                rule.reserve(last_matched - line + 1 + iter->first.size());
+                rule.assign(line, last_matched);
+
+                if (iter->first.empty()) {
+                    continue;
+                }
+
+                if (!rule.empty() && rule.back() != ' ' && rule.back() != '\t') {
+                    rule += ' ';
+                }
+                rule += iter->first.c_str();
+                ret.complete.push_back(rule);
+            }
+
+            // file system
+            if (parent->autocomplete_.test(cmd_autocomplete_flag_t::EN_CACF_FILES)) {
+                std::list<std::string> fls;
+                util::file_system::scan_dir(NULL, fls);
+                owent_foreach(std::string& fl, fls) {
+                    rule.assign(line, last_matched);
+                    if (!rule.empty() && rule.back() != ' ' && rule.back() != '\t') {
+                        rule += ' ';
+                    }
+
+                    ret.complete.push_back(rule + fl);
+                }
+            }
+        }
+
+        // 没有子命令则走hint
+        if (hint && !parent->hint_.empty()) {
+            ret.hint = parent->hint_;
+        }
     }
-
-    // 如果无响应命令，且允许列举文件列表则响应列举目录占位符
-    if (g_readline_complete_list.empty()) {
-        // 已经找到节点关系的部分不再需要了
-        return rl_completion_matches(text + ss.tellp() - full_cmd.size(), rl_filename_completion_function);
-    }
-
-    return rl_completion_matches(text, libedit_complete_cmd_generator);
-}
-
-char* simulator_base::libedit_complete_cmd_generator(const char* text, int state) {
-    // 将会被多次调用，直到返回NULL为止
-    // 所有的生成的指令必须以malloc分配内存并返回，每次一条,readline内部会负责释放
-
-    // 所有候选命令列举完毕
-    if (g_readline_complete_list.empty())
-        return NULL;
-
-    std::list<std::string>::iterator iter = g_readline_complete_list.begin();
-
-    char* ret = reinterpret_cast<char*>(::malloc((*iter).size() + 1));
-    if (ret == NULL) {
-        std::cerr<< __FILE__<< ":"<< __LINE__<< " => "<< "malloc memory for readline cmds failed."<< std::endl;
-        return ret;
-    }
-
-    strncpy(ret, (*iter).c_str(), (*iter).size() + 1);
-    g_readline_complete_list.pop_front();
 
     return ret;
 }
 
-void simulator_base::libedit_thd_main(void* arg) {
+void simulator_base::linenoise_thd_main(void* arg) {
     simulator_base* self = reinterpret_cast<simulator_base*>(arg);
     assert(self);
-
-    // setup signal again
-    simulator_setup_signal();
 
     if (!self->shell_opts_.cmds.empty()) {
         owent_foreach(std::string& cmd, self->shell_opts_.cmds) {
@@ -434,10 +652,10 @@ void simulator_base::libedit_thd_main(void* arg) {
     }
 
     // init
-    rl_attempted_completion_function = libedit_completion;
+    linenoiseSetCompletionCallback(linenoise_completion);
+    linenoiseSetHintsCallback(linenoise_hint);
     if (!self->shell_opts_.history_file.empty()) {
-        using_history();
-        read_history(self->shell_opts_.history_file.c_str());
+        linenoiseHistoryLoad(self->shell_opts_.history_file.c_str());
     }
 
     // readline loop
@@ -445,41 +663,36 @@ void simulator_base::libedit_thd_main(void* arg) {
     char *cmd_c = NULL;
     bool is_continue = true;
     while(is_continue && NULL != g_last_simulator && !g_last_simulator->is_closing()) {
-        cmd_c = readline(prompt.c_str());
+        cmd_c = linenoise(prompt.c_str());
 
-        // signal
-        if (0 != g_readline_signal_curr) {
-            if (SIGTERM == g_readline_signal_curr ||
-#ifndef WIN32
-                SIGQUIT == g_readline_signal_curr ||
-#endif
-                (SIGINT == g_readline_signal_curr && SIGINT == g_readline_signal_prev)) {
-                g_last_simulator->insert_cmd(g_last_simulator->get_current_player(), "quit");
-                is_continue = false;
-            } else if (SIGINT == g_readline_signal_curr) {
-                // libedit do not provide rl_cleanup_after_signal
-            }
-
-            if (NULL != cmd_c) {
-                ::free(cmd_c);
-            }
-            g_readline_signal_prev = g_readline_signal_curr;
-            g_readline_signal_curr = 0;
+        // ctrl+c
+        if (errno == EAGAIN) {
             continue;
         }
 
         // skip empty line
         if (NULL != cmd_c && *cmd_c != '\0') {
+            uv_mutex_lock(&g_last_simulator->async_cmd_lock_);
             g_last_simulator->insert_cmd(g_last_simulator->get_current_player(), cmd_c);
 
-            add_history(cmd_c);
+            while (true) {
+                uv_mutex_lock(&g_last_simulator->async_cmd_lock_);
+                bool next_cmd = g_last_simulator->shell_cmd_manager_.cmds.empty();
+                uv_mutex_unlock(&g_last_simulator->async_cmd_lock_);
+
+                if (next_cmd) {
+                    break;
+                }
+            }
+
+            linenoiseHistoryAdd(cmd_c);
             if (!self->shell_opts_.history_file.empty()) {
-                write_history(self->shell_opts_.history_file.c_str());
+                linenoiseHistorySave(self->shell_opts_.history_file.c_str());
             }
         }
 
         if (cmd_c != NULL) {
-            ::free(cmd_c);
+            linenoiseFree(cmd_c);
         }
 
         // update promote

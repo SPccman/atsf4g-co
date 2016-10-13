@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <list>
+#include <bitset>
 #include <fstream>
 
 #include <uv.h>
@@ -22,25 +23,51 @@
 
 #include <cli/cmd_option.h>
 
+extern "C" {
+    struct linenoiseCompletions;
+};
+
 class simulator_base {
 public:
     typedef std::shared_ptr<simulator_player_impl> player_ptr_t;
     typedef std::function<void (util::cli::callback_param)> cmd_fn_t;
 
+    struct cmd_autocomplete_flag_t{
+        enum type {
+            EN_CACF_FILES = 1,
+            EN_CACF_MAX
+        };
+    };
+
     struct cmd_wrapper_t {
         typedef std::shared_ptr<cmd_wrapper_t> ptr_t;
         typedef std::map<util::cli::cmd_option_ci_string, ptr_t> value_type;
         value_type children;
+        cmd_wrapper_t* parent;
         std::string name;
-        std::shared_ptr<util::cli::cmd_option_ci> owner;
+        std::shared_ptr<util::cli::cmd_option_ci> cmd_node;
 
-        cmd_wrapper_t(std::shared_ptr<util::cli::cmd_option_ci> o, const std::string& n);
+        std::string hint_;
+        std::bitset<cmd_autocomplete_flag_t::EN_CACF_MAX> autocomplete_;
+
+        cmd_wrapper_t(const std::string& n);
 
         // create a child node
         cmd_wrapper_t& operator[](const std::string& name);
 
         // bind a cmd handle
+        std::shared_ptr<util::cli::cmd_option_ci> parent_node();
+
+        // bind a cmd handle
         cmd_wrapper_t& bind(cmd_fn_t fn, const std::string& description);
+
+        // bind a cmd handle
+        cmd_wrapper_t& hint(std::string h);
+    };
+
+    struct linenoise_helper_t {
+        std::list<std::string> complete;
+        std::string hint;
     };
 
 public:
@@ -48,6 +75,8 @@ public:
     virtual ~simulator_base();
 
     int init();
+
+    void setup_signal();
 
     int run(int argc, const char* argv[]);
 
@@ -100,16 +129,27 @@ public:
 
     static void libuv_on_async_cmd(uv_async_t* handle);
 
-    static char **libedit_completion(const char *, int, int);
-    static char* libedit_complete_cmd_generator(const char* text, int state);
-    static void libedit_thd_main(void* arg);
+    static void linenoise_completion(const char *buf, linenoiseCompletions *lc);
+    static char *linenoise_hint(const char *buf, int *color, int *bold);
+    static linenoise_helper_t& linenoise_build_complete(const char *buf, bool complete, bool hint);
+    static void linenoise_thd_main(void* arg);
 private:
     bool is_closing_;
     const char* exec_path_;
     uv_loop_t loop_;
     uv_async_t async_cmd_;
+    uv_mutex_t async_cmd_lock_;
+
     player_ptr_t cmd_player_;
     uv_thread_t thd_cmd_;
+    typedef struct {
+        bool is_used;
+        uv_signal_t sigint;
+        uv_signal_t sigquit;
+        uv_signal_t sigterm;
+    } signal_set_t;
+    signal_set_t signals_;
+
     std::map<std::string, player_ptr_t> players_;
     std::set<player_ptr_t> connecting_players_;
     std::shared_ptr<util::cli::cmd_option_ci> cmd_mgr_;

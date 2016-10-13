@@ -15,36 +15,41 @@ namespace proto {
         void on_cmd_login_auth(util::cli::callback_param params) {
             SIMULATOR_CHECK_PARAMNUM(params, 1);
             client_simulator::cmd_sender_t& sender = client_simulator::get_cmd_sender(params);
+            sender.player = sender.self->create_player<client_player>(client_config::host, client_config::port);
+
+            if(!sender.player) {
+                SIMULATOR_ERR_MSG()<< "create player and try to connect to "<< client_config::host<<":"<< client_config::port<< " failed"<< std::endl;
+                return;
+            }
+
+            sender.player->set_id(params[0]->to_cpp_string());
 
             client_simulator::msg_t& msg = client_simulator::add_req(params);
-            client_simulator::player_ptr_t player = sender.self->create_player<client_player>(client_config::host, client_config::port);
-
-            player->set_id(params[0]->to_cpp_string());
             // token
             hello::CSLoginAuthReq* req_body = msg.mutable_body()->mutable_mcs_login_auth_req();
             req_body->set_open_id(params[0]->to_cpp_string());
-            req_body->set_version(player->get_version());
+            req_body->set_version(sender.player->get_version());
 
             if (params.get_params_number() > 1) {
-                player->set_system_id(params[1]->to_int32());
+                sender.player->set_system_id(params[1]->to_int32());
             }
 
             if (params.get_params_number() > 2) {
-                player->get_platform().set_platform_id(params[2]->to_int32());
+                sender.player->get_platform().set_platform_id(params[2]->to_int32());
             }
 
             if (params.get_params_number() > 3) {
-                player->get_platform().set_access(params[3]->to_cpp_string());
+                sender.player->get_platform().set_access(params[3]->to_cpp_string());
             } else {
-                player->get_platform().set_access("");
+                sender.player->get_platform().set_access("");
             }
 
             if (params.get_params_number() > 4) {
-                player->set_gamesvr_index(params[4]->to_int32());
+                sender.player->set_gamesvr_index(params[4]->to_int32());
             }
 
-            req_body->mutable_platform()->CopyFrom(player->get_platform());
-            req_body->set_system_id(player->get_system_id());
+            req_body->mutable_platform()->CopyFrom(sender.player->get_platform());
+            req_body->set_system_id(sender.player->get_system_id());
         }
 
         void on_rsp_login_auth(client_simulator::player_ptr_t player, client_simulator::msg_t& msg) {
