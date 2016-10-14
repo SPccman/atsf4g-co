@@ -34,7 +34,7 @@ bool simulator_player_impl::set_id(const std::string& id) {
 
     std::string old_id = id;
     old_id.swap(id_);
-    if(false == owner_->insert_player(watcher_.lock())) {
+    if(!id_.empty() && false == owner_->insert_player(watcher_.lock())) {
         id_.swap(old_id);
         util::cli::shell_stream ss(std::cerr);
         ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED

@@ -2,6 +2,7 @@
 // Created by owent on 2016/10/6.
 //
 
+#include <common/string_oprs.h>
 #include <log/log_wrapper.h>
 #include <protocol/pbdesc/svr.const.err.pb.h>
 #include <protocol/pbdesc/svr.container.pb.h>
@@ -97,7 +98,7 @@ int task_action_player_login::operator()(hello::message_container& msg) {
         return hello::err::EN_SUCCESS;
     }
 
-    if(msg_body.login_code() != tb.login_code()) {
+    if(0 != UTIL_STRFUNC_STRCMP(msg_body.login_code().c_str(), tb.login_code().c_str())) {
         WLOGERROR("player %s login code error(expected: %s, real: %s)", msg_body.open_id().c_str(), tb.login_code().c_str(), msg_body.login_code().c_str());
         set_rsp_code(hello::EN_ERR_LOGIN_VERIFY);
         return hello::err::EN_SUCCESS;

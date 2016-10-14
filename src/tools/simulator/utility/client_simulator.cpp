@@ -49,7 +49,7 @@ int client_simulator::pack_message(const msg_t& msg, void* buffer, size_t& sz) c
     }
 
     msg.SerializeWithCachedSizesToArray(reinterpret_cast<::google::protobuf::uint8*>(buffer));
-    sz = static_cast<size_t>(sz);
+    sz = static_cast<size_t>(msz);
     return 0;
 }
 

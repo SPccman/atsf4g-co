@@ -137,12 +137,13 @@ namespace rpc {
                 }
 
                 std::vector<const ::google::protobuf::FieldDescriptor*> fds;
-                const google::protobuf::Reflection* reflect = rsp.GetReflection();
-                if (NULL == reflect) {
-                    WLOGERROR("pack message %s failed, get reflection failed", rsp.GetDescriptor()->full_name().c_str());
-                    return hello::err::EN_SYS_PACK;
+                const ::google::protobuf::Descriptor* desc = hello::table_login::descriptor();
+                fds.reserve(static_cast<size_t>(desc->field_count()));
+
+                for (int i = 0; i < desc->field_count(); ++ i) {
+                    fds.push_back(desc->field(i));
                 }
-                reflect->ListFields(rsp, &fds);
+
                 // version will take two segments
                 // each fd will take key segment and value segment
                 redis_args args(fds.size() * 2 + 6);
@@ -152,7 +153,9 @@ namespace rpc {
                     args.push(1);
                     args.push(user_key);
                 }
-                int res = ::rpc::db::pack_message(rsp, args, fds, &version, NULL);
+
+                std::stringstream segs_debug_info;
+                int res = ::rpc::db::pack_message(rsp, args, fds, &version, &segs_debug_info);
                 if (res < 0) {
                     return res;
                 }
@@ -189,6 +192,12 @@ namespace rpc {
                 }
 
                 version.assign(msgc.dbmsg().version());
+
+                WLOGINFO("table_login [openid=%s] all saved, new version: %s, detail: %s",
+                         openid,
+                         version.c_str(),
+                         segs_debug_info.str().c_str()
+                );
                 return hello::err::EN_SUCCESS;
             }
 

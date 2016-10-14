@@ -42,7 +42,13 @@ int task_action_base::operator()(void *priv_data) {
 
     // 响应OnSuccess(这时候任务的status还是running)
     if (cotask::EN_TS_RUNNING == task->get_status() && ret_code_ >= 0) {
-        int ret = on_success();
+        int ret = 0;
+        if (rsp_code_ < 0) {
+            ret = on_failed();
+            WLOGINFO("task %s [0x%llx] finished success but response errorcode, rsp code: %d\n", name(), get_task_id_llu(), rsp_code_);
+        } else {
+            ret = on_success();
+        }
         send_rsp_msg();
         return ret;
     }

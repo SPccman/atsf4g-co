@@ -13,8 +13,8 @@ namespace util {
         random_engine();
         ~random_engine();
 
-        static ::util::random::mt19937_64 _get_common_generator();
-        static ::util::random::taus88 _get_fast_generator();
+        static ::util::random::mt19937_64& _get_common_generator();
+        static ::util::random::taus88& _get_fast_generator();
     public:
         /**
          * 使用指定种子初始化随机数生成器

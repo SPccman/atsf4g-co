@@ -21,7 +21,6 @@ namespace proto {
                 SIMULATOR_ERR_MSG()<< "create player and try to connect to "<< client_config::host<<":"<< client_config::port<< " failed"<< std::endl;
                 return;
             }
-
             sender.player->set_id(params[0]->to_cpp_string());
 
             client_simulator::msg_t& msg = client_simulator::add_req(params);
@@ -132,6 +131,8 @@ namespace proto {
 
             if (msg.head().error_code() < 0) {
                 player->close();
+            } else {
+                player->get_owner()->set_current_player(player);
             }
         }
 

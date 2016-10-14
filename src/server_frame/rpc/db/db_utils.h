@@ -28,12 +28,12 @@ namespace rpc {
          * @return allocated buffer address, NULL if failed
          */
         template<typename Ty>
-        Ty* align_alloc(void*& buf_addr, size_t& buf_len) {
+        void* align_alloc(void*& buf_addr, size_t& buf_len) {
             if (NULL == buf_addr) {
                 return NULL;
             }
 
-            uintptr_t align_sz = sizeof(size_t);
+            uintptr_t align_sz = sizeof(Ty);
             uintptr_t in_addr = (uintptr_t)buf_addr;
             uintptr_t padding_offset = in_addr % align_sz;
             if (0 != padding_offset) {
@@ -42,13 +42,13 @@ namespace rpc {
             }
 
             // buffer not enough
-            if (buf_len < sizeof(Ty) + padding_offset) {
+            if (buf_len < padding_offset) {
                 return NULL;
             }
 
-            buf_len -= sizeof(Ty) + padding_offset;
-            buf_addr = (void*)(in_addr + sizeof(Ty));
-            return (Ty*)(in_addr);
+            buf_len -= padding_offset;
+            buf_addr = (void*)(in_addr);
+            return buf_addr;
         }
 
         class redis_args {

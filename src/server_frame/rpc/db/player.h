@@ -29,6 +29,7 @@ namespace rpc {
              * @brief 设置用户表的rpc操作
              * @param openid 登入用户的openid
              * @param store 要保持的数据
+             * @warning 默认值会被忽略，比如空message或者空字符串，或者0不会更新
              * @return 0或错误码
              */
             int set(const char* openid, hello::table_user& store, std::string &version);

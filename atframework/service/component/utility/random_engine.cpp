@@ -11,12 +11,12 @@ namespace util {
 
     random_engine::~random_engine() {}
 
-    ::util::random::mt19937_64 random_engine::_get_common_generator() {
+    ::util::random::mt19937_64& random_engine::_get_common_generator() {
         static ::util::random::mt19937_64 ret(time(NULL));
         return ret;
     }
 
-    ::util::random::taus88 random_engine::_get_fast_generator() {
+    ::util::random::taus88& random_engine::_get_fast_generator() {
         static ::util::random::taus88 ret(time(NULL));
         return ret;
     }

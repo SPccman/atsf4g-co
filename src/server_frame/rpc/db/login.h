@@ -39,6 +39,7 @@ namespace rpc {
              * @brief 设置登入表的rpc操作
              * @param openid 登入用户的openid
              * @param store 要保持的数据
+             * @note 未设置的值会采用默认值，部分字段更新请使用update接口
              * @return 0或错误码
              */
             int set(const char* openid, hello::table_login& store, std::string &version);

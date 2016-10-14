@@ -84,17 +84,31 @@ namespace rpc {
 
             size_t used_buf_len = free_buffer_ - ::rpc::db::detail::get_pack_tls_buffer();
             if (used_buf_len + sz > PROJECT_RPC_DB_BUFFER_LENGTH) {
-                WLOGERROR("buffer length extended");
+                WLOGERROR("buffer length extended before padding");
                 assert(false);
                 return NULL;
             }
 
             size_t free_buf_len = PROJECT_RPC_DB_BUFFER_LENGTH - used_buf_len;
             void* start_addr = reinterpret_cast<void*>(free_buffer_);
-            char* ret = align_alloc<char>(start_addr, free_buf_len);
-            free_buffer_ = reinterpret_cast<char*>(start_addr);
+            if (NULL == align_alloc<size_t>(start_addr, free_buf_len)) {
+                WLOGERROR("buffer length extended when padding");
+                assert(false);
+                return NULL;
+            }
 
-            return ret;
+            if (free_buf_len < sz) {
+                WLOGERROR("buffer length extended after padding");
+                assert(false);
+                return NULL;
+            }
+
+            free_buffer_ = reinterpret_cast<char*>(start_addr) + sz;
+
+            segment_value_[used_] = reinterpret_cast<char*>(start_addr);
+            segment_length_[used_] = sz;
+            ++ used_;
+            return reinterpret_cast<char*>(start_addr);
         }
 
         void redis_args::dealloc() {
@@ -283,6 +297,10 @@ namespace rpc {
                 return hello::err::EN_SYS_UNPACK;
             }
 
+            if (reply->elements <= 0) {
+                return hello::err::EN_SUCCESS;
+            }
+
             for(size_t i = 0; i < reply->elements - 1; i += 2) {
                 const redisReply* key = reply->element[i];
                 const redisReply* value = reply->element[i + 1];
@@ -468,8 +486,8 @@ namespace rpc {
                         char vstr[24] = {0};\
                         int intlen = UTIL_STRFUNC_SNPRINTF(vstr, sizeof(vstr), cppformat, vint); \
                         data_allocated = args.alloc(static_cast<size_t>(intlen)); \
-                        if (NULL == data_allocated) { \
-                            WLOGERROR("pack message %s failed, alloc %s value failed", msg.GetDescriptor()->full_name().c_str(), fds[i]->name().c_str()); \
+                        if (NULL == data_allocated || intlen < 0) { \
+                            WLOGERROR("pack message %s failed, alloc %s,len=%d value failed", msg.GetDescriptor()->full_name().c_str(), fds[i]->name().c_str(), intlen); \
                             args.dealloc(); \
                             return hello::err::EN_SYS_MALLOC;\
                         }\
@@ -485,9 +503,16 @@ namespace rpc {
                 switch(fds[i]->cpp_type()) {
                     // 字符串直接保存
                     case google::protobuf::FieldDescriptor::CPPTYPE_STRING: {
-                        std::string seg_msg = reflect->GetString(msg, fds[i]);
+                        const std::string* seg_val;
+                        std::string empty;
+                        if (reflect->HasField(msg, fds[i])) {
+                            seg_val = &reflect->GetStringReference(msg, fds[i], NULL);
+                        } else {
+                            seg_val = &empty;
+                        }
 
-                        data_allocated = args.alloc(fds[i]->name().size());
+                        // 再dump 字段内容
+                        data_allocated = args.alloc(seg_val->size());
                         if (NULL == data_allocated) {
                             WLOGERROR("pack message %s failed, alloc %s value failed",
                                       msg.GetDescriptor()->full_name().c_str(),
@@ -497,21 +522,19 @@ namespace rpc {
                             args.dealloc();
                             return hello::err::EN_SYS_MALLOC;
                         }
+                        memcpy(data_allocated, seg_val->data(), seg_val->size());
 
-                        // 再dump 字段内容
-                        memcpy(data_allocated, seg_msg.c_str(), seg_msg.size());
-
-                        stat_sum_len += seg_msg.size();
+                        stat_sum_len += seg_val->size();
                         if (NULL != debug_message) {
-                            (*debug_message)<< fds[i]->name()<< "=" << seg_msg<< ",";
+                            (*debug_message)<< fds[i]->name()<< "=" << seg_val<< ",";
                         }
                         break;
                     }
 
                         // message需要序列化
                     case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE: {
-                        const ::google::protobuf::Message& seg_msg = reflect->GetMessage(msg, fds[i]);
-                        size_t dump_len = static_cast<size_t>(seg_msg.ByteSize());
+                        const ::google::protobuf::Message& seg_val = reflect->GetMessage(msg, fds[i]);
+                        size_t dump_len = static_cast<size_t>(seg_val.ByteSize());
 
                         data_allocated = args.alloc(dump_len);
                         if (NULL == data_allocated) {
@@ -525,7 +548,7 @@ namespace rpc {
                         }
 
                         // 再dump 字段内容
-                        seg_msg.SerializeWithCachedSizesToArray(reinterpret_cast<::google::protobuf::uint8*>(data_allocated));
+                        seg_val.SerializeWithCachedSizesToArray(reinterpret_cast<::google::protobuf::uint8*>(data_allocated));
 
 
                         stat_sum_len += dump_len;
@@ -538,8 +561,8 @@ namespace rpc {
                         // 整数类型
                     CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_INT32, int, "%d", GetInt32)
                     CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_INT64, long long, "%lld", GetInt64)
-                    CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_UINT32, unsigned int, "%u", GetInt32)
-                    CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_UINT64, unsigned long long, "%llu", GetInt64)
+                    CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_UINT32, unsigned int, "%u", GetUInt32)
+                    CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_UINT64, unsigned long long, "%llu", GetUInt64)
                     CASE_PB_INT_TO_REDIS_DATA(google::protobuf::FieldDescriptor::CPPTYPE_ENUM, int, "%d", GetEnumValue)
 
                     default: {

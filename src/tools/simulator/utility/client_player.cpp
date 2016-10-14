@@ -60,6 +60,15 @@ static int proto_inner_callback_on_handshake(libatgw_inner_v1_c_context ctx, int
     GTCLI2PLAYER(ctx).connect_done(ctx);
 
     if (0 != status) {
+        std::stringstream ss_pack;
+        ss_pack << "[Error] player "<< GTCLI2PLAYER(ctx).get_id()<< "handshake failed, status: "<< status<< std::endl;
+
+        char msg[4096];
+        libatgw_inner_v1_c_get_info(ctx, msg, sizeof(msg));
+        ss_pack<< (char*)msg;
+
+        util::cli::shell_stream ss(std::cerr);
+        ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED << ss_pack.str() <<std::endl;
         GTCLI2PLAYER(ctx).close_net(GTCLI2PLAYER(ctx).find_network(ctx));
         return -1;
     }
@@ -143,7 +152,7 @@ void client_player::on_alloc(libuv_ptr_t net, size_t suggested_size, uv_buf_t* b
 void client_player::on_read_data(libuv_ptr_t net, ssize_t nread, const uv_buf_t *buf) {
     libatgw_inner_v1_c_context proto_handle = mutable_proto_context(net);
     int32_t errcode = 0;
-    libatgw_inner_v1_c_read(proto_handle, nread, buf->base, static_cast<uint64_t>(buf->len), &errcode);
+    libatgw_inner_v1_c_read(proto_handle, nread, buf->base, static_cast<uint64_t>(nread), &errcode);
 }
 
 void client_player::on_read_message(libuv_ptr_t net, const void* buffer, size_t sz) {

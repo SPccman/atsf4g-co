@@ -27,6 +27,16 @@ extern "C" {
     struct linenoiseCompletions;
 };
 
+#ifndef SIMULATOR_MSG_MAX_LENGTH
+
+#ifdef ATBUS_MACRO_MSG_LIMIT
+#define SIMULATOR_MSG_MAX_LENGTH (ATBUS_MACRO_MSG_LIMIT - 8192)
+#else
+#define SIMULATOR_MSG_MAX_LENGTH 65536
+#endif
+
+#endif
+
 class simulator_base {
 public:
     typedef std::shared_ptr<simulator_player_impl> player_ptr_t;
@@ -103,8 +113,10 @@ public:
         std::shared_ptr<Ty> ret = std::make_shared<Ty>();
         player_ptr_t bret = std::dynamic_pointer_cast<simulator_player_impl>(ret);
         ret->watcher_ = bret;
+        bret->owner_ = this;
 
         if(0 != ret->connect(host, port)) {
+            bret->owner_ = NULL;
             return std::shared_ptr<Ty>();
         }
 
@@ -121,6 +133,11 @@ public:
 
     // this must be thread-safe
     int insert_cmd(player_ptr_t player, const std::string& cmd);
+
+    template<typename Ty>
+    void set_current_player(std::shared_ptr<Ty> p) {
+        set_current_player(std::dynamic_pointer_cast<simulator_player_impl>(p));
+    }
     void set_current_player(player_ptr_t p) { cmd_player_ = p; }
     const player_ptr_t& get_current_player() const { return cmd_player_; }
 
@@ -227,12 +244,15 @@ public:
             proto_file<< text<< std::endl;
         }
 
-        if (incoming) {
-            std::cout<< "<<<<<<<<<<<<"<< std::endl;
-        } else {
-            std::cout<< ">>>>>>>>>>>>"<< std::endl;
+        if (!shell_opts_.no_interactive) {
+            if (incoming) {
+                std::cout << std::endl<< "<<<<<<<<<<<< " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                          << std::endl;
+            } else {
+                std::cout << std::endl<< ">>>>>>>>>>>> " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                          << std::endl;
+            }
         }
-        std::cout<< text<< std::endl;
     }
 
     virtual int dispatch_message(simulator_base::player_ptr_t bp, const void* buffer, size_t sz) UTIL_CONFIG_OVERRIDE {
@@ -272,16 +292,26 @@ public:
         sender.self = this;
         sender.player = std::dynamic_pointer_cast<player_t>(p);
         get_cmd_manager()->start(cmd, true, &sender);
+        p = std::dynamic_pointer_cast<simulator_player_impl>(sender.player);
 
         for(typename std::list<msg_t>::iterator iter = sender.requests.begin(); sender.player && iter != sender.requests.end(); ++ iter) {
             size_t msg_len = get_msg_buffer().size();
             if (pack_message(*iter, &get_msg_buffer()[0], msg_len) >= 0) {
-                write_protocol(*iter, false);
-                int res = sender.player->on_write_message(p->last_network(), &get_msg_buffer()[0], msg_len);
-                if (res < 0) {
+
+                if (msg_len < SIMULATOR_MSG_MAX_LENGTH) {
+                    write_protocol(*iter, false);
+                    int res = sender.player->on_write_message(p->last_network(), &get_msg_buffer()[0], msg_len);
+                    if (res < 0) {
+                        util::cli::shell_stream ss(std::cerr);
+                        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player "
+                             << sender.player->get_id() << " try to send data failed, res: " << res << std::endl;
+                    }
+                } else {
                     util::cli::shell_stream ss(std::cerr);
-                    ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player "
-                        << sender.player->get_id()<< " try to send data failed, res: "<< res<< std::endl;
+                    ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player "
+                         << sender.player->get_id() << " try to send msg "
+                         << pick_message_name(*iter)<<"("<< pick_message_id(*iter)
+                         <<") failed, packaged data too large." << std::endl;
                 }
             }
         }
