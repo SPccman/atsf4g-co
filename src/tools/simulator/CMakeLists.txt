@@ -24,10 +24,6 @@ file(GLOB_RECURSE SRC_LIST
 
 source_group_by_dir(SRC_LIST)
 
-if (MINGW)
-    list(APPEND EXTENTION_LINK_LIB stdc++)
-endif()
-
 # these service will use atgateway protocol
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR} ${PROJECT_SERVER_FRAME_INC_DIR} ${ATFRAMEWORK_SERVICE_GATEWAY_PROTOCOL_DIR}
@@ -55,5 +51,5 @@ target_link_libraries(${SIMULATOR_SRC_BIN_NAME}
     ${3RD_PARTY_PROTOBUF_LINK_NAME}
     ${3RD_PARTY_LIBUV_LINK_NAME}
     ${3RD_PARTY_CRYPT_LINK_NAME}
-    ${EXTENTION_LINK_LIB}
+    ${COMPILER_OPTION_EXTERN_CXX_LIBS}
 )

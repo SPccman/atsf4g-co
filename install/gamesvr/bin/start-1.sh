@@ -17,11 +17,4 @@ mkdir -p "$GCOV_PREFIX";
 export MALLOC_CONF="stats_print:false,tcache:false";
 export LD_PRELOAD=$PROJECT_INSTALL_DIR/tools/shared/libjemalloc.so;
 
-PID_FILE=echosvr.pid;
-
-if [ -e $PID_FILE ]; then
-    PROC_PATH="/proc/$(cat $PID_FILE)";
-    if [ -e "$PROC_PATH" ]; then
-        ./echosvr -id 0x00000001 -c ../etc/echosvr.conf -p $PID_FILE stop
-    fi
-fi
+./gamesvrd -id 0x00008201 -c ../etc/gamesvr-1.conf -p gamesvr-1.pid start &

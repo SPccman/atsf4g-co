@@ -4,7 +4,7 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )";
 SCRIPT_DIR="$( readlink -f $SCRIPT_DIR )";
 cd "$SCRIPT_DIR";
 
-export PROJECT_INSTALL_DIR=$(cd ../.. && pwd);
+export PROJECT_INSTALL_DIR=$(cd ../../.. && pwd);
 
 
 export LD_LIBRARY_PATH=$PROJECT_INSTALL_DIR/lib:$PROJECT_INSTALL_DIR/tools/shared:$LD_LIBRARY_PATH ;
@@ -17,11 +17,4 @@ mkdir -p "$GCOV_PREFIX";
 export MALLOC_CONF="stats_print:false,tcache:false";
 export LD_PRELOAD=$PROJECT_INSTALL_DIR/tools/shared/libjemalloc.so;
 
-PID_FILE=echosvr.pid;
-
-if [ -e $PID_FILE ]; then
-    PROC_PATH="/proc/$(cat $PID_FILE)";
-    if [ -e "$PROC_PATH" ]; then
-        ./echosvr -id 0x00000001 -c ../etc/echosvr.conf -p $PID_FILE stop
-    fi
-fi
+./atgateway -id 0x00000102 -c ../etc/atgateway-2.conf -p atgateway-2.pid start &

@@ -454,7 +454,10 @@ void simulator_base::libuv_on_async_cmd(uv_async_t* handle) {
         self->exec_cmd(cmd.first, cmd.second);
     }
 
-    uv_mutex_unlock(&self->async_cmd_lock_);
+    if (!self->shell_opts_.no_interactive) {
+        uv_mutex_trylock(&self->async_cmd_lock_);
+        uv_mutex_unlock(&self->async_cmd_lock_);
+    }
 }
 
 
@@ -700,4 +703,6 @@ void simulator_base::linenoise_thd_main(void* arg) {
             prompt = self->get_current_player()->get_id() + ">";
         }
     }
+
+    g_last_simulator->shell_opts_.no_interactive = true;
 }

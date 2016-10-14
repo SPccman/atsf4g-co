@@ -49,6 +49,10 @@
 ## flatbuffers
 /3rd_party/flatbuffers/repo
 
+## jemalloc
+/3rd_party/jemalloc/pkg
+/3rd_party/jemalloc/prebuilt
+
 ## rapidjson
 
 ## atframework
