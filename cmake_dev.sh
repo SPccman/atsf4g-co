@@ -69,8 +69,9 @@ cd "$SCRIPT_DIR/$BUILD_DIR";
 
 CMAKE_OPTIONS="$CMAKE_OPTIONS -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX";
 
-if [ -e "/c/workspace" ]; then
-    cmake .. -DRAPIDJSON_ROOT=$SCRIPT_DIR/3rd_party/rapidjson/repo -DLIBCURL_ROOT=/c/workspace/lib/network/prebuilt/mingw64 -DLIBUV_ROOT=/c/workspace/lib/network/prebuilt/mingw64 -DMSGPACK_ROOT=/c/workspace/lib/protocol/msgpack/prebuilt $CMAKE_OPTIONS "$@";
+CHECK_MSYS=$(echo ${MSYSTEM:0:5} | tr '[:upper:]' '[:lower:]');
+if [ "mingw" == "$CHECK_MSYS" ]; then
+    cmake .. -G "MSYS Makefiles" -DRAPIDJSON_ROOT=$SCRIPT_DIR/3rd_party/rapidjson/repo $CMAKE_OPTIONS "$@";
 else
     cmake .. -DRAPIDJSON_ROOT=$SCRIPT_DIR/3rd_party/rapidjson/repo $CMAKE_OPTIONS "$@";
 fi
