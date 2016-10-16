@@ -12,9 +12,10 @@
 #include <design_pattern/singleton.h>
 #include <config/compiler_features.h>
 
+#include <uv.h>
+
 #include "dispatcher_implement.h"
 
-#include <uv.h>
 #include <rpc/db/unpack.h>
 #include <hiredis/hiredis.h>
 #include <config/logic_config.h>

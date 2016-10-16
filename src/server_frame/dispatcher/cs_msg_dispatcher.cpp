@@ -2,17 +2,22 @@
 // Created by owt50 on 2016/9/27.
 //
 
+#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+#include <WinSock2.h>
+#endif
+
 #include <log/log_wrapper.h>
 
-#include "cs_msg_dispatcher.h"
-
-#include <protocol/pbdesc/svr.container.pb.h>
-#include <protocol/pbdesc/svr.const.err.pb.h>
 #include <config/atframe_service_types.h>
 #include <libatgw_server_protocol.h>
 #include <logic/session_manager.h>
 #include <proto_base.h>
 #include <atframe/atapp.h>
+
+#include <protocol/pbdesc/svr.container.pb.h>
+#include <protocol/pbdesc/svr.const.err.pb.h>
+
+#include "cs_msg_dispatcher.h"
 
 cs_msg_dispatcher::cs_msg_dispatcher() {}
 cs_msg_dispatcher::~cs_msg_dispatcher() {}

@@ -4,17 +4,17 @@
 
 #include <log/log_wrapper.h>
 
-#include "ss_msg_dispatcher.h"
-
-#include <protocol/pbdesc/svr.container.pb.h>
-#include <protocol/pbdesc/svr.const.err.pb.h>
-
 #include <proto_base.h>
 #include <libatbus.h>
 #include <atframe/atapp.h>
 
 #include <config/extern_service_types.h>
 #include <config/atframe_service_types.h>
+
+#include "ss_msg_dispatcher.h"
+
+#include <protocol/pbdesc/svr.container.pb.h>
+#include <protocol/pbdesc/svr.const.err.pb.h>
 
 ss_msg_dispatcher::ss_msg_dispatcher() {}
 ss_msg_dispatcher::~ss_msg_dispatcher() {}
