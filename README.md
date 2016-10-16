@@ -14,3 +14,7 @@ service framework for game server using libatbus, libatapp, libcopp and etc.
 
 # Prepare
 1. Install [etcd](https://github.com/coreos/etcd). (It's used for atproxy to connect to each other.)
+
+
+# Extern Dependency
+1. libuuid-devel(uuid-dev)

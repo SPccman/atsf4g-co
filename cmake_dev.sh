@@ -53,7 +53,7 @@ while getopts "c:hm:o:tus-" OPTION; do
         -)
             break;
         ;;
-        ?)  #µ±ÓĞ²»ÈÏÊ¶µÄÑ¡ÏîµÄÊ±ºòargÎª?
+        ?)  #å½“æœ‰ä¸è®¤è¯†çš„é€‰é¡¹çš„æ—¶å€™argä¸º?
             echo "unkonw argument detected";
             exit 1;
         ;;
