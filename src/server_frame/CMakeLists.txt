@@ -1,5 +1,19 @@
 include_directories(${PROJECT_SERVER_FRAME_INC_DIR})
 
+# generated config loader protocol
+add_custom_command(OUTPUT 
+    "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.pb.h"
+    "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.pb.cc"
+    COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
+    --proto_path "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
+    --cpp_out "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
+    #-o "${PROJECT_INSTALL_RES_PBD_DIR}/config.pb"
+    "pb_header_v3.proto"
+    WORKING_DIRECTORY "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
+    DEPENDS "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.proto"
+    COMMENT "Generate [@${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel] ${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.proto"
+)
+
 # build libserver_frame.so
 file(GLOB_RECURSE SRC_LIST
     RELATIVE ${PROJECT_SERVER_FRAME_SRC_DIR}
