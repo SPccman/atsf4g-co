@@ -5,13 +5,13 @@ add_custom_command(OUTPUT
     "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.pb.h"
     "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.pb.cc"
     COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
-    --proto_path "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
-    --cpp_out "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
+    --proto_path "./"
+    --cpp_out "./"
     #-o "${PROJECT_INSTALL_RES_PBD_DIR}/config.pb"
-    "pb_header_v3.proto"
+    "./pb_header_v3.proto"
     WORKING_DIRECTORY "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel"
     DEPENDS "${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.proto"
-    COMMENT "Generate [@${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel] ${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel/pb_header_v3.proto"
+    COMMENT "Generate [@${PROJECT_SERVER_FRAME_SRC_DIR}/config/excel] ./pb_header_v3.proto"
 )
 
 # build libserver_frame.so
