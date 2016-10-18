@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     project_lookup = TemplateLookup(directories=[
         os.path.join(script_dir, 'helper', 'template', 'etc'),
         os.path.join(script_dir, 'helper', 'template', 'script')
-    ])
+    ], module_directory = os.path.join(script_dir, '.mako_modules'))
 
     parser = OptionParser("usage: %prog [options...]")
     parser.add_option("-e", "--env-prefix", action='store', dest="env_prefix", default='AUTOBUILD_', help="prefix when read parameters from environment variables")
@@ -28,7 +28,6 @@ if __name__ == '__main__':
     parser.add_option("-s", "--set", action='append' , dest="set_vars", default=[], help="set configures")
     parser.add_option("-n", "--number", action='store' , dest="reset_number", default=None, type='int', help="set default server numbers")
     parser.add_option("-i", "--id-offset", action='store' , dest="server_id_offset", default=0, type='int', help="set server id offset(default: 0)")
-    parser.add_option("-p", "--port-offset", action='store' , dest="server_port_offset", default=1, type='int', help="set server port offset(default: 0)")
 
     (opts, args) = parser.parse_args()
     config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
@@ -36,12 +35,13 @@ if __name__ == '__main__':
     # all custon environment start with SYSTEM_MACRO_CUSTOM_
     # TODO reset all servers's number
     # TODO set all custom configures
-    project.set_global_opts(config)
+    project.set_global_opts(config, opts.server_id_offset)
     # TODO parse all services
     #for generator in glob.glob(os.path.join(script_dir, 'helper', 'generator', '*')):
     #    set_server_inst(None, 'atproxy', 1)
     #    # TODO use all template
     #    # http://www.makotemplates.org/
-    project.set_server_inst(None, 'atproxy', 1)
-    mytemplate = Template(filename=os.path.join(script_dir, 'helper', 'template', 'etc', 'atproxy.conf'), lookup=project_lookup)
+    # TODO must generate atproxy first
+    project.set_server_inst(config['server.atproxy'], 'atproxy', 1)
+    mytemplate = project_lookup.get_template('atproxy.conf')
     print(mytemplate.render())
