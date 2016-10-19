@@ -17,10 +17,9 @@ if __name__ == '__main__':
     os.chdir(script_dir)
     from mako.template import Template
     from mako.lookup import TemplateLookup
-    project_lookup = TemplateLookup(directories=[
-        os.path.join(script_dir, 'helper', 'template', 'etc'),
-        os.path.join(script_dir, 'helper', 'template', 'script')
-    ], module_directory = os.path.join(script_dir, '.mako_modules'))
+    etc_template_dir = os.path.join(script_dir, 'helper', 'template', 'etc')
+    script_template_dir = os.path.join(script_dir, 'helper', 'template', 'script')
+    project_lookup = TemplateLookup(directories=[etc_template_dir, script_template_dir], module_directory = os.path.join(script_dir, '.mako_modules'))
 
     parser = OptionParser("usage: %prog [options...]")
     parser.add_option("-e", "--env-prefix", action='store', dest="env_prefix", default='AUTOBUILD_', help="prefix when read parameters from environment variables")
@@ -32,16 +31,73 @@ if __name__ == '__main__':
     (opts, args) = parser.parse_args()
     config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
     config.read(opts.config)
-    # all custon environment start with SYSTEM_MACRO_CUSTOM_
-    # TODO reset all servers's number
-    # TODO set all custom configures
+    
     project.set_global_opts(config, opts.server_id_offset)
-    # TODO parse all services
-    #for generator in glob.glob(os.path.join(script_dir, 'helper', 'generator', '*')):
-    #    set_server_inst(None, 'atproxy', 1)
-    #    # TODO use all template
-    #    # http://www.makotemplates.org/
-    # TODO must generate atproxy first
-    project.set_server_inst(config['server.atproxy'], 'atproxy', 1)
-    mytemplate = project_lookup.get_template('atproxy.conf')
-    print(mytemplate.render())
+
+    # all custon environment start with SYSTEM_MACRO_CUSTOM_
+    # reset all servers's number
+    if opts.reset_number is not None:
+        for svr_name in project.get_global_all_services():
+            config.set('server.{0}'.format(svr_name), 'number', opts.reset_number)
+
+    # set all custom configures
+    ext_cmd_rule = re.compile('(.*)\.([^\.]+)=([^=]*)$')
+    for cmd in opts.set_vars:
+        mat_res = ext_cmd_rule.match(cmd)
+        if mat_res:
+            config.set(mat_res.group(1), mat_res.group(2), mat_res.group(3))
+        else:
+            common.print_color.cprintf_stdout([common.print_color.print_style.FC_RED, common.print_color.print_style.FW_BOLD], 'set command {0} invalid, must be SECTION.KEY=VALUE\r\n', cmd)
+    
+    
+    def generate_service(svr_name, svr_index, install_prefix, section_name):
+        project.set_server_inst(config[section_name], svr_name, svr_index)
+        common.print_color.cprintf_stdout([common.print_color.print_style.FC_YELLOW, common.print_color.print_style.FW_BOLD], 'start to generate etc and script of {0}-{1}\r\n', svr_name, svr_index)
+
+        etc_in_name = '{0}.conf'.format(svr_name)
+        etc_out_name = '{0}-{1}.conf'.format(svr_name, svr_index)
+        start_script_name = 'start-{0}.sh'.format(svr_index)
+        stop_script_name = 'stop-{0}.sh'.format(svr_index)
+        reload_script_name = 'reload-{0}.sh'.format(svr_index)
+        install_abs_prefix = os.path.join(script_dir, '..', '..', install_prefix)
+
+        if not os.path.exists(os.path.join(install_abs_prefix, 'etc')):
+            os.makedirs(os.path.join(install_abs_prefix, 'etc'))
+        if not os.path.exists(os.path.join(install_abs_prefix, 'bin')):
+            os.makedirs(os.path.join(install_abs_prefix, 'bin'))
+        # etc
+        gen_in_path = os.path.join(etc_template_dir, etc_in_name)
+        gen_out_path = os.path.join(install_abs_prefix, 'etc', etc_out_name)
+        if os.path.exists(gen_in_path):
+            svr_tmpl = project_lookup.get_template(etc_in_name)
+            open(gen_out_path, mode='w').write(svr_tmpl.render(project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'etc'))))
+        # start script
+        gen_in_path = os.path.join(script_template_dir, 'start.sh')
+        gen_out_path = os.path.join(install_abs_prefix, 'bin', start_script_name)
+        if os.path.exists(gen_in_path):
+            svr_tmpl = project_lookup.get_template('start.sh')
+            open(gen_out_path, mode='w').write(svr_tmpl.render(project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin'))))
+        # stop script
+        gen_in_path = os.path.join(script_template_dir, 'stop.sh')
+        gen_out_path = os.path.join(install_abs_prefix, 'bin', stop_script_name)
+        if os.path.exists(gen_in_path):
+            svr_tmpl = project_lookup.get_template('stop.sh')
+            open(gen_out_path, mode='w').write(svr_tmpl.render(project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin'))))
+        # reload script
+        gen_in_path = os.path.join(script_template_dir, 'reload.sh')
+        gen_out_path = os.path.join(install_abs_prefix, 'bin', reload_script_name)
+        if os.path.exists(gen_in_path):
+            svr_tmpl = project_lookup.get_template('reload.sh')
+            open(gen_out_path, mode='w').write(svr_tmpl.render(project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin'))))
+    
+    # parse all services
+    atgateway_index = 1 + opts.server_id_offset
+    for svr_name in project.get_global_all_services():
+        section_name = 'server.{0}'.format(svr_name)
+        install_prefix = project.get_global_option(section_name, 'install_prefix', svr_name)
+        for svr_index in range(1 + opts.server_id_offset, 1 + opts.server_id_offset + int(project.get_global_option(section_name, 'number', 0))):
+            generate_service(svr_name, svr_index, install_prefix, section_name)
+            # atgateway if available
+
+    common.print_color.cprintf_stdout([common.print_color.print_style.FC_YELLOW, common.print_color.print_style.FW_BOLD], 'all jobs done.\r\n')
+        

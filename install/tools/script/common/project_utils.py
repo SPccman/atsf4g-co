@@ -7,6 +7,8 @@ import cgi, re
 
 environment_check_shm = None
 global_opts = None
+global_cahce = dict(id_offset=0,services_type=[])
+global_services_type = []
 server_opts = None
 server_name = ''
 server_index = 1
@@ -18,8 +20,19 @@ server_cache_ip = dict()
 
 def set_global_opts(opts, id_offset):
     global global_opts
+    global global_cahce
     global_opts = opts
-    # TODO generate all services indexs
+    global_cahce['id_offset'] = id_offset
+    for server_type in sorted(opts.items('atservice'), key=lambda x:int(x[1])):
+        if 'atgateway' == server_type[0]:
+            continue
+        svr_name = 'server.{0}'.format(server_type[0])
+        if global_opts.has_section(svr_name):
+            global_cahce['services_type'].append(server_type[0])
+
+def get_global_all_services():
+    return global_cahce['services_type']
+
 
 def set_server_inst(opts, key, index):
     global server_opts
@@ -39,7 +52,9 @@ def get_ip_list_v4():
         import socket
         server_cache_ip['ipv4'] = []
         for ip_pair in socket.getaddrinfo(socket.gethostname(), 0, socket.AF_INET, socket.SOCK_STREAM):
-            server_cache_ip['ipv4'].append(ip_pair[4][0])
+            ip_addr = ip_pair[4][0]
+            if '127.0.0.1' != ip_addr:
+                server_cache_ip['ipv4'].append(ip_addr)
     return server_cache_ip['ipv4']
 
 def get_ip_list_v6():
@@ -48,8 +63,18 @@ def get_ip_list_v6():
         import socket
         server_cache_ip['ipv6'] = []
         for ip_pair in socket.getaddrinfo(socket.gethostname(), 0, socket.AF_INET6, socket.SOCK_STREAM):
-            server_cache_ip['ipv6'].append(ip_pair[4][0])
+            ip_addr = ip_pair[4][0]
+            if 'fe80:' != ip_addr[0:5].lower() and 'fe81:' != ip_addr[0:5].lower():
+                interface_index = ip_addr.find('%')
+                # remove interface name
+                if interface_index > 0:
+                    ip_addr = ip_addr[0:interface_index]
+                server_cache_ip['ipv6'].append(ip_addr)
     return server_cache_ip['ipv6']
+
+def is_ip_v6_enabled():
+    ipv6s = get_ip_list_v6()
+    return len(ipv6s) > 0
 
 def get_inner_ipv4():
     if 'SYSTEM_MACRO_INNER_IPV4' in os.environ:
@@ -215,10 +240,16 @@ def get_server_atbus_port():
     return get_calc_listen_port()
 
 def get_server_atbus_tcp():
-    if 'atproxy' == get_server_name():
-        return 'ipv6://{0}:{1}'.format(get_outer_ipv6(), get_server_atbus_port())
+    if is_ip_v6_enabled():
+        if 'atproxy' == get_server_name():
+            return 'ipv6://{0}:{1}'.format(get_outer_ipv6(), get_server_atbus_port())
+        else:
+            return 'ipv6://{0}:{1}'.format(get_inner_ipv6(), get_server_atbus_port())
     else:
-        return 'ipv6://{0}:{1}'.format(get_inner_ipv6(), get_server_atbus_port())
+        if 'atproxy' == get_server_name():
+            return 'ipv4://{0}:{1}'.format(get_outer_ipv4(), get_server_atbus_port())
+        else:
+            return 'ipv4://{0}:{1}'.format(get_inner_ipv4(), get_server_atbus_port())
 
 def get_server_atbus_listen():
     ret = []
