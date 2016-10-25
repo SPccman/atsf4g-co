@@ -526,7 +526,7 @@ namespace rpc {
 
                         stat_sum_len += seg_val->size();
                         if (NULL != debug_message) {
-                            (*debug_message)<< fds[i]->name()<< "=" << seg_val<< ",";
+                            (*debug_message)<< fds[i]->name()<< "=" << *seg_val<< ",";
                         }
                         break;
                     }
