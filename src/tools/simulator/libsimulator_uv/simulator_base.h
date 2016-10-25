@@ -246,10 +246,12 @@ public:
 
         if (!shell_opts_.no_interactive) {
             if (incoming) {
-                std::cout << std::endl<< "<<<<<<<<<<<< " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                // std::cout << std::endl<< "<<<<<<<<<<<< " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                std::cout << std::endl<< "<<<<<<<<<<<< " << text
                           << std::endl;
             } else {
-                std::cout << std::endl<< ">>>>>>>>>>>> " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                // std::cout << std::endl<< ">>>>>>>>>>>> " << pick_message_name(msg) << "(" << pick_message_id(msg) << ")"
+                std::cout << std::endl<< ">>>>>>>>>>>> " << text
                           << std::endl;
             }
         }
