@@ -12,7 +12,7 @@ SERVER_FULL_NAME="${project.get_server_full_name()}";
 SERVER_BUS_ID=${hex(project.get_server_id())};
 export PROJECT_INSTALL_DIR=$(cd ${project_install_prefix} && pwd);
 
-source "$PROJECT_INSTALL_DIR/script/helper/common/common.sh";
+source "$PROJECT_INSTALL_DIR/tools/script/common/common.sh";
 
 if [ ! -e "$SERVERD_NAME" ]; then
     SERVERD_NAME="${project.get_server_name()}d";
@@ -55,7 +55,7 @@ if project.get_global_option_bool('jemalloc', 'malloc', False):
         jemalloc_options = jemalloc_options[1:]
     
     server_preload_scripts.append('export MALLOC_CONF="{0}" ;'.format(jemalloc_options))
-    server_preload_scripts.append('if [ -e "{0}" ]:'.format(jemalloc_path))
+    server_preload_scripts.append('if [ -e "{0}" ]; then'.format(jemalloc_path))
     server_preload_scripts.append('    export LD_PRELOAD="{0}" ;'.format(jemalloc_path))
     server_preload_scripts.append('fi')
 elif project.get_global_option_bool('gperftools', 'malloc', False):
@@ -80,7 +80,7 @@ elif project.get_global_option_bool('gperftools', 'malloc', False):
     if len(gperftools_heap_check) > 0:
         server_preload_scripts.append('export HEAPCHECK={0} ;'.format(gperftools_heap_check))
 
-    server_preload_scripts.append('if [ -e "{0}" ]:'.format(tcmalloc_path))
+    server_preload_scripts.append('if [ -e "{0}" ]; then'.format(tcmalloc_path))
     server_preload_scripts.append('    export LD_PRELOAD="{0}" ;'.format(tcmalloc_path))
     server_preload_scripts.append('fi')
 %>

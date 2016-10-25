@@ -63,14 +63,17 @@ def get_ip_list_v6():
     if 'ipv6' not in server_cache_ip:
         import socket
         server_cache_ip['ipv6'] = []
-        for ip_pair in socket.getaddrinfo(socket.gethostname(), 0, socket.AF_INET6, socket.SOCK_STREAM):
-            ip_addr = ip_pair[4][0]
-            if 'fe80:' != ip_addr[0:5].lower() and 'fe81:' != ip_addr[0:5].lower():
-                interface_index = ip_addr.find('%')
-                # remove interface name
-                if interface_index > 0:
-                    ip_addr = ip_addr[0:interface_index]
-                server_cache_ip['ipv6'].append(ip_addr)
+        try:
+            for ip_pair in socket.getaddrinfo(socket.gethostname(), 0, socket.AF_INET6, socket.SOCK_STREAM):
+                ip_addr = ip_pair[4][0]
+                if 'fe80:' != ip_addr[0:5].lower() and 'fe81:' != ip_addr[0:5].lower():
+                    interface_index = ip_addr.find('%')
+                    # remove interface name
+                    if interface_index > 0:
+                        ip_addr = ip_addr[0:interface_index]
+                    server_cache_ip['ipv6'].append(ip_addr)
+        except:
+            pass
     return server_cache_ip['ipv6']
 
 def is_ip_v6_enabled():
