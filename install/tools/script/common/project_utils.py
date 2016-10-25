@@ -8,7 +8,6 @@ import cgi, re
 environment_check_shm = None
 global_opts = None
 global_cahce = dict(id_offset=0,services_type=[])
-global_services_type = []
 server_opts = None
 server_name = ''
 server_index = 1
@@ -30,9 +29,11 @@ def set_global_opts(opts, id_offset):
         if global_opts.has_section(svr_name):
             global_cahce['services_type'].append(server_type[0])
 
+def get_service_index_range(number = 1):
+    return range(1 + global_cahce['id_offset'], 1 + global_cahce['id_offset'] + number)
+
 def get_global_all_services():
     return global_cahce['services_type']
-
 
 def set_server_inst(opts, key, index):
     global server_opts
@@ -128,18 +129,20 @@ def get_global_option(section, key, default_val, env_name = None):
     
     return default_val
 
-def get_global_list(section, key, default_val, env_name = None):
-    res = get_global_option()
+def str_to_list(val):
     ret = []
-    for item in res:
-        ret.append(item.strip())
+    if val is None:
+        return ret
+    for item in str(val).split(','):
+        item_strip = item.strip()
+        if len(item_strip) > 0:
+            ret.append(item_strip)
     return ret
 
-def get_global_list_to_hosts(section, key, default_val, env_name = None):
-    res = get_global_list()
+def list_to_hosts(val):
     ret = []
     mat = re.compile('([^:]*):(\d+)-(\d+)\s*$')
-    for item in res:
+    for item in val:
         mat_res = mat.match(item)
         if not mat_res is None:
             for i in range(int(mat_res.group(2)), int(mat_res.group(3)) + 1):
@@ -147,6 +150,26 @@ def get_global_list_to_hosts(section, key, default_val, env_name = None):
         else:
             ret.append(item)
     return ret
+
+def str_to_hosts(val):
+    return list_to_hosts(str_to_list(val))
+
+def get_global_list(section, key, default_val, env_name = None):
+    res = get_global_option(section, key, default_val, env_name)
+    if res is None:
+        return []
+    return str_to_list(res)
+
+def get_global_list_to_hosts(section, key, default_val, env_name = None):
+    res = get_global_list(section, key, default_val, env_name)
+    return list_to_hosts(res)
+
+def get_global_option_bool(section, key, default_val, env_name = None):
+    val = get_global_option(section, key, default_val, env_name)
+    if not val:
+        return False
+    val = str(val).lower().strip()
+    return len(val) > 0 and '0' != val and 'false' != val and 'no' != val and 'disable' != val
 
 def get_server_name():
     global server_name
@@ -178,6 +201,11 @@ def get_server_group_inner_id(server_name = None, server_index = None):
     type_id = int(get_global_option('atservice', server_name, 0))
     return type_step * type_id + server_index
 
+def get_server_proc_id(server_name = None, server_index = None):
+    group_id = int(get_global_option('global', 'group_id', 1, 'SYSTEM_MACRO_GROUP_ID'))
+    group_step = int(get_global_option('global', 'group_step', 0x10000, 'SYSTEM_MACRO_GROUP_STEP'))
+    return group_id * group_step + get_server_group_inner_id(server_name, server_index)
+
 def get_server_id():
     global server_cache_id
     global global_opts
@@ -186,9 +214,7 @@ def get_server_id():
 
     if not global_opts.has_option('atservice', get_server_name()):
         return 0
-    group_id = int(get_global_option('global', 'group_id', 1))
-    group_step = int(get_global_option('global', 'group_step', 0x10000))
-    server_cache_id = group_id * group_step + get_server_group_inner_id()
+    server_cache_id = get_server_proc_id()
     return server_cache_id
 
 def get_server_full_name():
@@ -272,3 +298,26 @@ def get_server_children_mask():
 
 def get_server_recv_buffer_size():
     return get_global_option('atsystem', 'shm_key_pool', 2 * 1024 * 1024)
+
+def get_server_gateway_index(server_name = None, server_index = None):
+    if server_name is None:
+        server_name = get_server_name()
+    if server_index is None:
+        server_index = get_server_index()
+
+    step = int(get_global_option('server.atgateway', 'index_type_number', 1))
+    offset = get_global_option('server.atgateway', 'index_map_{0}'.format(server_name), None)
+    if offset is None:
+        raise Exception('index_map_{0} is not found in server.atgateway'.format(server_name))
+    return step * server_index + int(offset)
+
+def get_server_gateway_port(server_name = None, server_index = None, base_port = 'atgateway_port'):
+    if server_name is None:
+        server_name = get_server_name()
+    if server_index is None:
+        server_index = get_server_index()
+    ret = int(get_global_option('server.{0}'.format(server_name), base_port, 0))
+    if 0 != ret:
+        return ret + server_index
+    ret = int(get_global_option('server.atgateway', 'default_port', 8000))
+    return ret + get_server_gateway_index(server_name, server_index)
