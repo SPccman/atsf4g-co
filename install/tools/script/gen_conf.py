@@ -93,6 +93,7 @@ if __name__ == '__main__':
                 project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'etc')),
                 **ext_options
             ))
+            os.chmod(gen_out_path, stat.S_IRWXU + stat.S_IRWXG + stat.S_IROTH + stat.S_IXOTH)
         # start script
         gen_in_path = os.path.join(script_template_dir, 'start.sh')
         gen_out_path = os.path.join(install_abs_prefix, 'bin', start_script_name)
@@ -102,6 +103,7 @@ if __name__ == '__main__':
                 project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin')),
                 **ext_options
             ))
+            os.chmod(gen_out_path, stat.S_IRWXU + stat.S_IRWXG + stat.S_IROTH + stat.S_IXOTH)
             open(restart_all_script, mode='a').write("""
 # ==================== {0} ==================== 
 if [ $# -eq 0 ] || [ "0" == "$(is_in_server_list {1} $*)" ]; then 
@@ -122,6 +124,7 @@ fi
                 project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin')),
                 **ext_options
             ))
+            os.chmod(gen_out_path, stat.S_IRWXU + stat.S_IRWXG + stat.S_IROTH + stat.S_IXOTH)
             open(stop_all_script, mode='a').write("""
 # ==================== {0} ==================== 
 if [ $# -eq 0 ] || [ "0" == "$(is_in_server_list {1} $*)" ]; then 
@@ -142,6 +145,7 @@ fi
                 project_install_prefix=os.path.relpath('.', os.path.join(install_prefix, 'bin')),
                 **ext_options
             ))
+            os.chmod(gen_out_path, stat.S_IRWXU + stat.S_IRWXG + stat.S_IROTH + stat.S_IXOTH)
             open(reload_all_script, mode='a').write("""
 # ==================== {0} ==================== 
 if [ $# -eq 0 ] || [ "0" == "$(is_in_server_list {1} $*)" ]; then 

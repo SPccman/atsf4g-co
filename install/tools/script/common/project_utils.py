@@ -97,7 +97,9 @@ def get_outer_ipv4():
     res = get_ip_list_v4()
     if 0 == len(res):
         return '0.0.0.0'
-    return res[0]
+    if '127.0.0.1' == ret:
+        ret = '0.0.0.0'
+    return ret
 
 def get_inner_ipv6():
     if 'SYSTEM_MACRO_INNER_IPV6' in os.environ:
@@ -115,7 +117,10 @@ def get_outer_ipv6():
     res = get_ip_list_v6()
     if 0 == len(res):
         return '::'
-    return res[0]
+    ret = res[0]
+    if '::1' == ret:
+        ret = '::'
+    return ret
 
 def get_hostname():
     if 'SYSTEM_MACRO_HOST_NAME' in os.environ:
