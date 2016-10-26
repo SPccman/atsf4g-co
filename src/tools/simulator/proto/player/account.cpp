@@ -100,7 +100,7 @@ namespace proto {
 
             // ==================== 重建连接 =======================
             std::string url = sender.player->get_gamesvr_addr();
-            std::string::size_type p = url.find(":");
+            std::string::size_type p = url.find_last_of(":");
             if (p == std::string::npos || p == url.size() - 1) {
                 SIMULATOR_ERR_MSG() << "gameurl: " << url << " invalid"<< std::endl;
                 sender.player->close();
