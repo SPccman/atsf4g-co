@@ -225,23 +225,26 @@ int db_msg_dispatcher::send_msg(channel_t::type t, const char* ks, size_t kl,
     va_list ap;
     va_start(ap, format);
 
+    int ret = hello::err::EN_SYS_PARAM;
     if (t > channel_t::CLUSTER_BOUND && t < channel_t::SENTINEL_BOUND) {
         if (db_cluster_conns_[t]) {
-            return cluster_send_msg(*db_cluster_conns_[t], ks, kl, task_id, pd, fn, format, ap);
+            ret = cluster_send_msg(*db_cluster_conns_[t], ks, kl, task_id, pd, fn, format, ap);
         } else {
             WLOGERROR("db cluster %d not inited", static_cast<int>(t));
-            return hello::err::EN_SYS_INIT;
+            ret = hello::err::EN_SYS_INIT;
         }
     }
 
     if (t >= channel_t::RAW_DEFAULT && t < channel_t::RAW_BOUND) {
         if(db_raw_conns_[t - channel_t::RAW_DEFAULT]) {
-            return raw_send_msg(*db_raw_conns_[t - channel_t::RAW_DEFAULT], task_id, pd, fn, format, ap);
+            ret = raw_send_msg(*db_raw_conns_[t - channel_t::RAW_DEFAULT], task_id, pd, fn, format, ap);
         } else {
             WLOGERROR("db single %d not inited", static_cast<int>(t));
-            return hello::err::EN_SYS_INIT;
+            ret = hello::err::EN_SYS_INIT;
         }
     }
+
+    va_end(ap);
 
     WLOGERROR("db channel %d invalid", static_cast<int>(t));
     return hello::err::EN_SYS_PARAM;
