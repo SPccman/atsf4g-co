@@ -247,7 +247,7 @@ int db_msg_dispatcher::send_msg(channel_t::type t, const char* ks, size_t kl,
     va_end(ap);
 
     WLOGERROR("db channel %d invalid", static_cast<int>(t));
-    return hello::err::EN_SYS_PARAM;
+    return ret;
 }
 
 void* db_msg_dispatcher::get_cache_buffer(size_t len) {
