@@ -10,13 +10,16 @@
 
 #include <config/atframe_service_types.h>
 #include <libatgw_server_protocol.h>
-#include <logic/session_manager.h>
 #include <proto_base.h>
 #include <atframe/atapp.h>
 
 #include <protocol/pbdesc/svr.container.pb.h>
 #include <protocol/pbdesc/svr.const.err.pb.h>
 
+#include <logic/action/task_action_player_logout.h>
+#include <logic/session_manager.h>
+
+#include "task_manager.h"
 #include "cs_msg_dispatcher.h"
 
 cs_msg_dispatcher::cs_msg_dispatcher() {}
@@ -194,13 +197,23 @@ int32_t cs_msg_dispatcher::dispatch(const atbus::protocol::msg &msg, const void 
                      static_cast<unsigned long long>(session_key.session_id)
             );
 
-            // TODO logout task
-            ret = 0;
-            if (0 != ret) {
+            // logout task
+            task_manager::id_t logout_task_id = 0;
+            ret = task_manager::me()->create_task<task_action_player_logout>(logout_task_id, session_key.bus_id, session_key.session_id);
+            if (0 == ret) {
+                hello::message_container cs_msg;
+                cs_msg.mutable_src_server()->set_bus_id(session_key.bus_id);
+                cs_msg.mutable_src_client()->set_session_id(session_key.session_id);
+                ret = task_manager::me()->start_task(logout_task_id, cs_msg);
+
+                if (0 != ret) {
+                    WLOGERROR("run logout task failed, res: %d", ret);
+                    session_manager::me()->remove(session_key);
+                }
+            } else {
                 WLOGERROR("create logout task failed, res: %d", ret);
                 session_manager::me()->remove(session_key);
             }
-
             break;
         }
         default:

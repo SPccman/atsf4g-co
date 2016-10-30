@@ -97,6 +97,7 @@ def get_outer_ipv4():
     res = get_ip_list_v4()
     if 0 == len(res):
         return '0.0.0.0'
+    ret = res[0]
     if '127.0.0.1' == ret:
         ret = '0.0.0.0'
     return ret

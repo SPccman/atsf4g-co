@@ -7,9 +7,9 @@
 #include <sstream>
 #include <vector>
 
+#include <time/time_utility.h>
 
 #include <atframe/atapp.h>
-#include <time/time_utility.h>
 
 #include <config/atframe_service_types.h>
 #include <libatgw_server_protocol.h>
@@ -19,6 +19,7 @@
 #include <dispatcher/db_msg_dispatcher.h>
 
 #include <config/logic_config.h>
+#include <config/excel/config_manager.h>
 
 #include <logic/player_manager.h>
 #include <logic/session_manager.h>
@@ -116,7 +117,7 @@ public:
     virtual int init() {
         WLOGINFO("============ server initialize ============");
         INIT_CALL(logic_config, get_app()->get_id());
-
+        INIT_CALL(excel::config_manager);
 
         // logic managers
         INIT_CALL(task_manager);
@@ -136,6 +137,7 @@ public:
         util::config::ini_loader &cfg = get_app()->get_configure();
 
         RELOAD_CALL(ret, logic_config, cfg);
+        ret = excel::config_manager::me()->reload_all();
 
         return ret;
     }

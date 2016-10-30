@@ -163,7 +163,18 @@ public:
     const hello::DClientDeviceInfo &get_client_info() const { return client_info_; }
     void set_client_info(const hello::DClientDeviceInfo &info) { client_info_.CopyFrom(info); }
 
+    /**
+     * @brief 是否完整执行过初始化
+     * @note 如果完整执行了登入流程，则会走完整初始化流程。这个flag还有一个含义是玩家数据仅仅在此进程内可写。
+     *       比如如果一个玩家对象是缓存，则不会走完整的登入流程，也不会被完全初始化，那么这个数据就是只读的。
+    *        这时候如果登出或者移除玩家对象的时候清理就不能写数据库。
+     */
     bool is_inited() const { return inner_flags_.test(inner_flag::EN_IFT_IS_INITED); }
+    /**
+     * @brief 标记为完全初始化，也表示在此进程中玩家数据是可写的。
+     * @note 这个flag用于标记玩家实时数据必须最多唯一存在于一个进程中，其他进程的数据都是缓存。
+     *       缓存可以升级为实时数据，但是不能降级。如果需要降级，则直接移除玩家对象，下一次需要的时候重新拉取缓存
+     */
     void set_inited() { inner_flags_.set(inner_flag::EN_IFT_IS_INITED, true); }
 
     bool is_removing() const { return inner_flags_.test(inner_flag::EN_IFT_IS_REMOVING); }

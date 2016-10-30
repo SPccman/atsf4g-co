@@ -35,7 +35,7 @@ public:
         uint32_t zone_step;
 
         time_t server_open_time;
-        std::string server_resource_dir; // ../../ for default
+        std::string server_resource_dir; // ../../resource for default
         bool server_maintenance_mode;
 
         time_t task_nomsg_timeout;

@@ -6,7 +6,9 @@
 #include "config_manager.h"
 
 namespace excel {
-    config_set_base::config_set_base() {}
+    config_set_base::config_set_base() {
+        config_manager::me()->add_config_set(this);
+    }
 
     config_set_base::~config_set_base() {}
 

@@ -25,7 +25,8 @@ int task_action_player_logout::operator()(hello::message_container& msg) {
     if (s) {
         // 连接断开的时候需要保存一下数据
         player::ptr_t user = s->get_player();
-        if (user) {
+        // 如果玩家数据是缓存，不是实际登入点，则不用保存
+        if (user && user->is_inited()) {
 
             hello::table_user user_tb;
             user->dump(user_tb, true);

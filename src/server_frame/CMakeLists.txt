@@ -33,6 +33,12 @@ if ( NOT MSVC )
     add_definitions(-shared)
 endif()
 
+find_package(Libuuid)
+if(NOT Libuuid_FOUND)
+    EchoWithColor(COLOR RED "-- Dependency: libuuid not found")
+    message(FATAL_ERROR "libuuid-devel or uuid-dev is required")
+endif()
+
 # these service will use atgateway protocol
 include_directories(${ATFRAMEWORK_SERVICE_GATEWAY_PROTOCOL_DIR})
 
@@ -51,6 +57,6 @@ target_link_libraries(${PROJECT_SERVER_FRAME_LIB_LINK}
     ${3RD_PARTY_PROTOBUF_LINK_NAME}
     ${3RD_PARTY_REDIS_LINK_NAME}
     ${3RD_PARTY_LIBUV_LINK_NAME}
-    uuid
+    ${Libuuid_LIBRARIES}
     ${COMPILER_OPTION_EXTERN_CXX_LIBS}
 )
