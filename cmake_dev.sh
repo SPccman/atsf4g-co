@@ -1,4 +1,4 @@
-#!/use/bin/env bash
+#!/usr/bin/env bash
 
 SYS_NAME="$(uname -s)";
 SYS_NAME="$(basename $SYS_NAME)";
