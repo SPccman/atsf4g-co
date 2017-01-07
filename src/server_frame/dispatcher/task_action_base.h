@@ -38,6 +38,7 @@ public:
     virtual const char *name() const;
 
     int operator()(void *priv_data);
+    virtual int hook_run();
 
     virtual int operator()(hello::message_container &msg) = 0;
     virtual std::shared_ptr<player> get_player() const = 0;
@@ -54,13 +55,7 @@ protected:
     const hello::message_container &get_request() const;
     virtual void send_rsp_msg() = 0;
 
-    /**
-     * @brief 设置逻辑返回码
-     * @note 用于临时存储逻辑操作错误码
-     * @param iRetCode 返回码
-     */
-    inline void set_ret_code(int32_t ret_code) { ret_code_ = ret_code; }
-
+public:
     /**
      * @brief 获取逻辑返回码
      * @note 默认值为 T_APP_SUCCESS
@@ -70,13 +65,6 @@ protected:
     inline int32_t get_ret_code() const { return ret_code_; }
 
     /**
-     * @brief 设置回包返回码
-     * @note 用于临时存储回包返回码
-     * @param iRetCode 回包返回码
-     */
-    inline void set_rsp_code(int32_t rsp_code) { rsp_code_ = rsp_code; }
-
-    /**
      * @brief 获取回包返回码
      * @note 默认值为 Polar::EN_CS_SUCCESS
      * @see Polar::EN_CS_SUCCESS
@@ -84,11 +72,38 @@ protected:
      */
     inline int32_t get_rsp_code() const { return rsp_code_; }
 
+protected:
+    /**
+     * @brief 设置逻辑返回码
+     * @note 用于临时存储逻辑操作错误码
+     * @param iRetCode 返回码
+     */
+    inline void set_ret_code(int32_t ret_code) { ret_code_ = ret_code; }
+
+    /**
+     * @brief 设置回包返回码
+     * @note 用于临时存储回包返回码
+     * @param iRetCode 回包返回码
+     */
+    inline void set_rsp_code(int32_t rsp_code) { rsp_code_ = rsp_code; }
+
+    /**
+     * @brief 禁用结束事件响应
+     */
+    inline void disable_finish_evt() { evt_disabled_ = false; }
+
+    /**
+     * @brief 禁用自动回包
+     */
+    inline void disable_rsp_msg() { rsp_msg_disabled_ = false; }
+
 private:
     uint64_t task_id_;
     hello::message_container request_msg_;
     int32_t ret_code_;
     int32_t rsp_code_;
+    bool rsp_msg_disabled_;
+    bool evt_disabled_;
 };
 
 

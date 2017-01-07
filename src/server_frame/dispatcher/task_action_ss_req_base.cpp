@@ -23,7 +23,7 @@ uint64_t task_action_ss_req_base::get_request_bus_id() const {
     return msg.src_server().bus_id();
 }
 
-const std::string& task_action_ss_req_base::get_player_openid() const {
+const std::string &task_action_ss_req_base::get_player_openid() const {
     if (!player_openid_.empty()) {
         return player_openid_;
     }
@@ -41,6 +41,10 @@ std::shared_ptr<player> task_action_ss_req_base::get_player() const {
         return player_inst_;
     }
 
+    const std::string &openid = get_player_openid();
+    if (openid.empty()) {
+        return player::get_global_gm_player();
+    }
     player_inst_ = player_manager::me()->find(get_player_openid());
     return player_inst_;
 }
@@ -50,7 +54,7 @@ task_action_ss_req_base::msg_ref_type task_action_ss_req_base::add_rsp_msg(int32
     msg_ref_type msg = rsp_msgs_.back();
 
     msg.mutable_ssmsg()->mutable_head()->set_error_code(get_rsp_code());
-    dst_pd = 0 == dst_pd? get_request_bus_id(): dst_pd;
+    dst_pd = 0 == dst_pd ? get_request_bus_id() : dst_pd;
 
     msg_cref_type req_msg = get_request();
     init_msg(msg, dst_pd, svr_msg_type, req_msg);
@@ -94,8 +98,8 @@ void task_action_ss_req_base::send_rsp_msg() {
         return;
     }
 
-    for(std::list<msg_type>::iterator iter = rsp_msgs_.begin(); iter != rsp_msgs_.end(); ++iter) {
-        if(0 == (*iter).src_server().bus_id()) {
+    for (std::list<msg_type>::iterator iter = rsp_msgs_.begin(); iter != rsp_msgs_.end(); ++iter) {
+        if (0 == (*iter).src_server().bus_id()) {
             WLOGERROR("task %s [0x%llx] send message to unknown server", name(), get_task_id_llu());
             continue;
         }
@@ -105,9 +109,7 @@ void task_action_ss_req_base::send_rsp_msg() {
         int32_t res = ss_msg_dispatcher::me()->send_to_proc((*iter).src_server().bus_id(), &(*iter));
         if (res) {
             WLOGERROR("task %s [0x%llx] send message to server 0x%llx failed, res: %d", name(), get_task_id_llu(),
-                static_cast<unsigned long long>((*iter).src_server().bus_id()),
-                res
-            );
+                      static_cast<unsigned long long>((*iter).src_server().bus_id()), res);
         }
     }
 
