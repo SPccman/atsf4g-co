@@ -12,7 +12,7 @@
 #include "client_simulator.h"
 
 
-#define GTCLI2PLAYER(ctx) (*reinterpret_cast<client_player*>(libatgw_inner_v1_c_get_private_data(ctx)))
+#define GTCLI2PLAYER(ctx) (*reinterpret_cast<client_player *>(libatgw_inner_v1_c_get_private_data(ctx)))
 
 // ======================== 以下为协议处理回调 ========================
 static int32_t proto_inner_callback_on_write(libatgw_inner_v1_c_context ctx, void *buffer, uint64_t sz, int32_t *is_done) {
@@ -28,7 +28,7 @@ static int32_t proto_inner_callback_on_write(libatgw_inner_v1_c_context ctx, voi
     int ret = GTCLI2PLAYER(ctx).write_message(net, buffer, sz);
     if (NULL != is_done) {
         // if not writting, notify write finished
-        *is_done = (0 != ret)? 1: 0;
+        *is_done = (0 != ret) ? 1 : 0;
     }
 
     return ret;
@@ -41,7 +41,7 @@ static int proto_inner_callback_on_message(libatgw_inner_v1_c_context ctx, const
 
 // useless
 static int proto_inner_callback_on_new_session(libatgw_inner_v1_c_context ctx, uint64_t *sess_id) {
-    printf("create session 0x%llx\n", NULL == sess_id? 0: static_cast<unsigned long long>(*sess_id));
+    printf("create session 0x%llx\n", NULL == sess_id ? 0 : static_cast<unsigned long long>(*sess_id));
     return 0;
 }
 
@@ -52,7 +52,11 @@ static int proto_inner_callback_on_reconnect(libatgw_inner_v1_c_context ctx, uin
 }
 
 static int proto_inner_callback_on_close(libatgw_inner_v1_c_context ctx, int32_t reason) {
-    GTCLI2PLAYER(ctx).close_net(GTCLI2PLAYER(ctx).find_network(ctx));
+    if (reason < 0 || reason > 0x10000) {
+        GTCLI2PLAYER(ctx).close();
+    } else {
+        GTCLI2PLAYER(ctx).close_net(GTCLI2PLAYER(ctx).find_network(ctx));
+    }
     return 0;
 }
 
@@ -61,14 +65,14 @@ static int proto_inner_callback_on_handshake(libatgw_inner_v1_c_context ctx, int
 
     if (0 != status) {
         std::stringstream ss_pack;
-        ss_pack << "[Error] player "<< GTCLI2PLAYER(ctx).get_id()<< "handshake failed, status: "<< status<< std::endl;
+        ss_pack << "[Error] player " << GTCLI2PLAYER(ctx).get_id() << " handshake failed, status: " << status << std::endl;
 
         char msg[4096];
         libatgw_inner_v1_c_get_info(ctx, msg, sizeof(msg));
-        ss_pack<< (char*)msg;
+        ss_pack << (char *)msg;
 
         util::cli::shell_stream ss(std::cerr);
-        ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED << ss_pack.str() <<std::endl;
+        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << ss_pack.str() << std::endl;
         GTCLI2PLAYER(ctx).close_net(GTCLI2PLAYER(ctx).find_network(ctx));
         return -1;
     }
@@ -76,14 +80,12 @@ static int proto_inner_callback_on_handshake(libatgw_inner_v1_c_context ctx, int
     return 0;
 }
 
-static int proto_inner_callback_on_handshake_update(libatgw_inner_v1_c_context ctx, int32_t status) {
-    return 0;
-}
+static int proto_inner_callback_on_handshake_update(libatgw_inner_v1_c_context ctx, int32_t status) { return 0; }
 
 static int proto_inner_callback_on_error(libatgw_inner_v1_c_context ctx, const char *filename, int line, int errcode, const char *errmsg) {
     util::cli::shell_stream ss(std::cerr);
-    ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED
-         << "[Error]["<< filename<< ":"<< line<< "]: error code: "<< errcode<< ", msg: "<< errmsg<< std::endl;
+    ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "[Error][" << filename << ":" << line << "]: error code: " << errcode << ", msg: " << errmsg
+         << std::endl;
     return 0;
 }
 
@@ -99,20 +101,20 @@ void client_player::init_handles() {
 }
 
 
-client_player::client_player(): system_id_(hello::EN_OS_WINDOWS), version_(INT32_MAX),
-    proto_version_(INT32_MAX), sequence_(0), gamesvr_index_(0), is_connecting_(false) {
+client_player::client_player()
+    : system_id_(hello::EN_OS_WINDOWS), version_(INT32_MAX), proto_version_(INT32_MAX), sequence_(0), gamesvr_index_(0), is_connecting_(false) {
     platform_.set_platform_id(hello::EN_PTI_ACCOUNT);
     platform_.set_channel_id(hello::EN_PCI_NONE);
 }
 
 client_player::~client_player() {
-    for(std::map<uint32_t, libatgw_inner_v1_c_context>::iterator iter = proto_handles_.begin(); iter != proto_handles_.end(); ++iter) {
+    for (std::map<uint32_t, libatgw_inner_v1_c_context>::iterator iter = proto_handles_.begin(); iter != proto_handles_.end(); ++iter) {
         libatgw_inner_v1_c_destroy(iter->second);
     }
     proto_handles_.clear();
 }
 
-int client_player::connect(const std::string& host, int port) {
+int client_player::connect(const std::string &host, int port) {
     int ret = simulator_player_impl::connect(host, port);
     if (ret >= 0) {
         is_connecting_ = true;
@@ -128,7 +130,7 @@ int client_player::on_connected(libuv_ptr_t net, int status) {
     int32_t res = libatgw_inner_v1_c_start_session(proto_handle);
     if (res < 0) {
         util::cli::shell_stream ss(std::cerr);
-        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED<< "start session failed, res"<< res<< std::endl;
+        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "start session failed, res" << res << std::endl;
         is_connecting_ = false;
         close_net(net);
         destroy_proto_context(net);
@@ -137,7 +139,7 @@ int client_player::on_connected(libuv_ptr_t net, int status) {
     return res;
 }
 
-void client_player::on_alloc(libuv_ptr_t net, size_t suggested_size, uv_buf_t* buf) {
+void client_player::on_alloc(libuv_ptr_t net, size_t suggested_size, uv_buf_t *buf) {
     libatgw_inner_v1_c_context proto_handle = mutable_proto_context(net);
     uint64_t len = static_cast<uint64_t>(buf->len);
     libatgw_inner_v1_c_read_alloc(proto_handle, suggested_size, &buf->base, &len);
@@ -155,11 +157,11 @@ void client_player::on_read_data(libuv_ptr_t net, ssize_t nread, const uv_buf_t 
     libatgw_inner_v1_c_read(proto_handle, nread, buf->base, static_cast<uint64_t>(nread), &errcode);
 }
 
-void client_player::on_read_message(libuv_ptr_t net, const void* buffer, size_t sz) {
-    client_simulator* owner = client_simulator::cast(get_owner());
+void client_player::on_read_message(libuv_ptr_t net, const void *buffer, size_t sz) {
+    client_simulator *owner = client_simulator::cast(get_owner());
     if (NULL == owner) {
         util::cli::shell_stream ss(std::cerr);
-        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED<< "player "<< get_id()<< " already removed."<< std::endl;
+        ss() << util::cli::shell_font_style::SHELL_FONT_COLOR_RED << "player " << get_id() << " already removed." << std::endl;
         return;
     }
 
@@ -178,7 +180,7 @@ int client_player::on_write_message(libuv_ptr_t net, void *buffer, uint64_t sz) 
         return libatgw_inner_v1_c_post_msg(proto_handle, buffer, sz);
     } else {
         pending_msg_.push_back(std::vector<unsigned char>());
-        pending_msg_.back().assign((unsigned char*)buffer, (unsigned char*)buffer + sz);
+        pending_msg_.back().assign((unsigned char *)buffer, (unsigned char *)buffer + sz);
         return 0;
     }
 }
@@ -192,9 +194,7 @@ void client_player::on_close() {}
 
 void client_player::on_closed() {}
 
-uint32_t client_player::alloc_sequence() {
-    return ++ sequence_;
-}
+uint32_t client_player::alloc_sequence() { return ++sequence_; }
 
 libatgw_inner_v1_c_context client_player::mutable_proto_context(libuv_ptr_t net) {
     uint32_t id = 0;
@@ -228,14 +228,14 @@ void client_player::destroy_proto_context(libuv_ptr_t net) {
 
 client_player::libuv_ptr_t client_player::find_network(libatgw_inner_v1_c_context ctx) {
     uint32_t id = 0;
-    for(std::map<uint32_t, libatgw_inner_v1_c_context>::iterator iter = proto_handles_.begin(); iter != proto_handles_.end(); ++iter) {
+    for (std::map<uint32_t, libatgw_inner_v1_c_context>::iterator iter = proto_handles_.begin(); iter != proto_handles_.end(); ++iter) {
         if (iter->second.pa == ctx.pa) {
             id = iter->first;
             break;
         }
     }
 
-    for(std::list<libuv_ptr_t>::reverse_iterator iter = network_.rbegin(); iter != network_.rend(); ++ iter) {
+    for (std::list<libuv_ptr_t>::reverse_iterator iter = network_.rbegin(); iter != network_.rend(); ++iter) {
         if ((*iter) && id == (*iter)->id) {
             return (*iter);
         }
@@ -245,7 +245,7 @@ client_player::libuv_ptr_t client_player::find_network(libatgw_inner_v1_c_contex
 }
 
 void client_player::connect_done(libatgw_inner_v1_c_context ctx) {
-    for(size_t i = 0; i < pending_msg_.size(); ++ i) {
+    for (size_t i = 0; i < pending_msg_.size(); ++i) {
         libatgw_inner_v1_c_post_msg(ctx, pending_msg_[i].data(), pending_msg_[i].size());
     }
 
