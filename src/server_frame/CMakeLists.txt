@@ -29,7 +29,7 @@ include("${PROJECT_SERVER_FRAME_BAS_DIR}/protocol/generate_proto_source.cmake")
 list(REMOVE_DUPLICATES SRC_LIST)
 
 source_group_by_dir(SRC_LIST)
-if ( NOT MSVC )
+if ( NOT MSVC AND NOT APPLE )
     add_definitions(-shared)
 endif()
 
@@ -44,6 +44,7 @@ include_directories(${ATFRAMEWORK_SERVICE_GATEWAY_PROTOCOL_DIR})
 
 add_library(${PROJECT_SERVER_FRAME_LIB_LINK} SHARED
     ${SRC_LIST}
+    ${PROJECT_3RD_PARTY_SRC_LIST}
 )
 
 target_link_libraries(${PROJECT_SERVER_FRAME_LIB_LINK}
