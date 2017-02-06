@@ -7,6 +7,7 @@
 #include <dispatcher/cs_msg_dispatcher.h>
 
 #include <utility/environment_helper.h>
+#include <utility/protobuf_mini_dumper.h>
 
 #include "session.h"
 #include "player.h"
@@ -83,7 +84,7 @@ int32_t session::send_msg_to_client(hello::CSMsg &msg) {
         static_cast<unsigned long long>(id_.bus_id),
         static_cast<unsigned long long>(id_.session_id),
         static_cast<unsigned long long>(msg_buf_len),
-        msg.DebugString().c_str()
+        protobuf_mini_dumper_get_readable(msg)
     );
 
     return send_msg_to_client(buf_start, msg_buf_len);
@@ -114,7 +115,7 @@ int32_t session::broadcast_msg_to_client(uint64_t bus_id, const hello::CSMsg &ms
     WLOGDEBUG("broadcast msg to gateway [0x%llx] %llu bytes\n%s",
         static_cast<unsigned long long>(bus_id),
         static_cast<unsigned long long>(msg_buf_len),
-        msg.DebugString().c_str()
+              protobuf_mini_dumper_get_readable(msg)
     );
 
     return broadcast_msg_to_client(bus_id, buf_start, msg_buf_len);

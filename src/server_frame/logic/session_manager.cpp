@@ -6,6 +6,7 @@
 #include <protocol/pbdesc/svr.const.err.pb.h>
 
 #include <config/logic_config.h>
+#include <utility/protobuf_mini_dumper.h>
 #include "session_manager.h"
 #include "player_manager.h"
 #include "data/player.h"
@@ -179,7 +180,7 @@ int32_t session_manager::broadcast_msg_to_client(const hello::CSMsg &msg) {
     msg.SerializeWithCachedSizesToArray(buf_start);
     WLOGDEBUG("broadcast msg to all gateway %llu bytes\n%s",
         static_cast<unsigned long long>(msg_buf_len),
-        msg.DebugString().c_str()
+              protobuf_mini_dumper_get_readable(msg)
     );
 
     int32_t ret = 0;

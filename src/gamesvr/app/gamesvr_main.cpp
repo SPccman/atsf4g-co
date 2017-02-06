@@ -7,7 +7,7 @@
 #include <sstream>
 #include <vector>
 
-
+#include <common/file_system.h>
 #include <time/time_utility.h>
 #include <atframe/atapp.h>
 
@@ -168,6 +168,13 @@ public:
 int main(int argc, char *argv[]) {
     atapp::app app;
 
+    // project directory
+    {
+        std::string proj_dir;
+        util::file_system::dirname(__FILE__, 0, proj_dir, 4);
+        util::log::log_formatter::set_project_directory(proj_dir.c_str(), proj_dir.size());
+    }
+    
     app.add_module(std::make_shared<main_service_module>());
     app.add_module(cs_msg_dispatcher::me());
     app.add_module(ss_msg_dispatcher::me());

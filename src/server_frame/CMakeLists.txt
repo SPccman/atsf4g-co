@@ -35,8 +35,9 @@ endif()
 
 find_package(Libuuid)
 if(NOT Libuuid_FOUND)
-    EchoWithColor(COLOR RED "-- Dependency: libuuid not found")
-    message(FATAL_ERROR "libuuid-devel or uuid-dev is required")
+    EchoWithColor(COLOR YELLOW "-- Dependency: libuuid not found")
+    # message(FATAL_ERROR "libuuid-devel or uuid-dev is required")
+    set(Libuuid_LIBRARIES "")
 endif()
 
 # these service will use atgateway protocol

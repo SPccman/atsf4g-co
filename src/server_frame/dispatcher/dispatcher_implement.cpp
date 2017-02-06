@@ -5,11 +5,12 @@
 #include "dispatcher_implement.h"
 #include "actor_action_base.h"
 
+#include <common/string_oprs.h>
 #include <log/log_wrapper.h>
 #include <protocol/pbdesc/svr.const.err.pb.h>
 #include <protocol/pbdesc/svr.container.pb.h>
 
-#define MSG_DISPATCHER_DEBUG_PRINT_BOUND 2048
+#include <utility/protobuf_mini_dumper.h>
 
 int dispatcher_implement::init() { return 0; }
 
@@ -26,12 +27,7 @@ int32_t dispatcher_implement::on_recv_msg(msg_ptr_t msgc, const void *msg_buf, s
 
     if (NULL != WDTLOGGETCAT(util::log::log_wrapper::categorize_t::DEFAULT) &&
         WDTLOGGETCAT(util::log::log_wrapper::categorize_t::DEFAULT)->check(util::log::log_wrapper::level_t::LOG_LW_DEBUG)) {
-        std::string debug_msg(msgc->DebugString());
-        if (debug_msg.size() < MSG_DISPATCHER_DEBUG_PRINT_BOUND) {
-            WLOGDEBUG("dispatcher %s recv msg.\n%s", name(), debug_msg.c_str());
-        } else {
-            WLOGDEBUG("dispatcher %s recv msg. size=%llu", name(), static_cast<unsigned long long>(0 == msg_size ? debug_msg.size() : msg_size));
-        }
+        WLOGDEBUG("dispatcher %s recv msg.\n%s", name(), protobuf_mini_dumper_get_readable(*msgc));
     }
 
     // 消息过滤器
@@ -79,7 +75,7 @@ int32_t dispatcher_implement::on_recv_msg(msg_ptr_t msgc, const void *msg_buf, s
         msgc->mutable_src_server()->set_dst_task_id(task_id);
 
         if (res < 0) {
-            WLOGERROR("create task failed, errcode=%d\n%s", res, msgc->DebugString().c_str());
+            WLOGERROR("create task failed, errcode=%d\n%s", res, protobuf_mini_dumper_get_readable(*msgc));
             return hello::err::EN_SYS_MALLOC;
         }
 

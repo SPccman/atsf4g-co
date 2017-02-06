@@ -173,6 +173,8 @@ void simulator_player_impl::libuv_on_dns_callback(uv_getaddrinfo_t *req, int sta
         }
 
         net->connect_req.data = self_sptr;
+        assert(self_sptr);
+        assert(*self_sptr);
         int res_code = uv_tcp_connect(&net->connect_req, &net->tcp_sock, (struct sockaddr *)&real_addr, libuv_on_connected);
         if (0 != res_code) {
             util::cli::shell_stream ss(std::cerr);
@@ -209,8 +211,10 @@ int simulator_player_impl::connect(const std::string& host, int port) {
 
     libuv_ptr_t net = add_network();
     net->port = port;
-    net->dns_req.data = new ptr_t(watcher_.lock());
+    ptr_t* async_data = new ptr_t(watcher_.lock());
+    net->dns_req.data = async_data;
     assert(net->dns_req.data);
+    assert(*async_data);
 
     int ret = uv_getaddrinfo(owner_->get_loop(), &net->dns_req, libuv_on_dns_callback, host.c_str(), NULL, NULL);
     if (0 != ret) {
@@ -304,7 +308,6 @@ void simulator_player_impl::libuv_on_closed(uv_handle_t *handle) {
     assert(self_sptr);
     handle->data = NULL;
     ptr_t self = *self_sptr;
-    delete self_sptr;
 
     libuv_ptr_t net = self->find_network((uv_tcp_t*)handle);
     if (net) {
@@ -319,6 +322,7 @@ void simulator_player_impl::libuv_on_closed(uv_handle_t *handle) {
     if (self->network_.empty() && self->is_closing_) {
         self->on_closed();
     }
+    delete self_sptr;
 }
 
 simulator_player_impl::libuv_ptr_t simulator_player_impl::add_network() {
@@ -431,8 +435,12 @@ bool simulator_player_impl::close_net(libuv_ptr_t net) {
         return false;
     }
 
-    net->tcp_sock.data = new ptr_t(watcher_.lock());
+    ptr_t* async_data = new ptr_t(watcher_.lock());
+    net->tcp_sock.data = async_data;
     net->is_closing = true;
+    assert(net->tcp_sock.data);
+    assert(*async_data);
+
     uv_close((uv_handle_t *) &net->tcp_sock, libuv_on_closed);
     return true;
 }

@@ -8,6 +8,7 @@
 
 #include <cli/shell_font.h>
 #include <libatgw_inner_v1_c.h>
+#include <proto_base.h>
 #include "client_player.h"
 #include "client_simulator.h"
 
@@ -52,7 +53,7 @@ static int proto_inner_callback_on_reconnect(libatgw_inner_v1_c_context ctx, uin
 }
 
 static int proto_inner_callback_on_close(libatgw_inner_v1_c_context ctx, int32_t reason) {
-    if (reason < 0 || reason > 0x10000) {
+    if ((reason < 0 || reason > 0x10000) && ::atframe::gateway::close_reason_t::EN_CRT_EOF != reason) {
         GTCLI2PLAYER(ctx).close();
     } else {
         GTCLI2PLAYER(ctx).close_net(GTCLI2PLAYER(ctx).find_network(ctx));

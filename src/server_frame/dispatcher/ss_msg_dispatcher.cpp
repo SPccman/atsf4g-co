@@ -17,6 +17,7 @@
 
 #include <protocol/pbdesc/svr.const.err.pb.h>
 #include <protocol/pbdesc/svr.container.pb.h>
+#include <utility/protobuf_mini_dumper.h>
 
 
 ss_msg_dispatcher::ss_msg_dispatcher() {}
@@ -136,7 +137,7 @@ int32_t ss_msg_dispatcher::send_to_proc(uint64_t bus_id, msg_ptr_t msg) {
         reinterpret_cast< ::google::protobuf::uint8 *>(atframe::gateway::proto_base::get_tls_buffer(atframe::gateway::proto_base::tls_buffer_t::EN_TBT_CUSTOM));
     msg->SerializeWithCachedSizesToArray(buf_start);
     WLOGDEBUG("send msg to proc [0x%llx] %llu bytes\n%s", static_cast<unsigned long long>(bus_id), static_cast<unsigned long long>(msg_buf_len),
-              msg->DebugString().c_str());
+              protobuf_mini_dumper_get_readable(*msg));
 
     return send_to_proc(bus_id, buf_start, msg_buf_len);
 }
