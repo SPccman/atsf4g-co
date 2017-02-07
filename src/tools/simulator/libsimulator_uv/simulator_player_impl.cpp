@@ -206,6 +206,9 @@ int simulator_player_impl::connect(const std::string& host, int port) {
     util::time::time_utility::update(NULL);
 
     if (is_closing_ || NULL == owner_) {
+        util::cli::shell_stream ss(std::cerr);
+        ss()<< util::cli::shell_font_style::SHELL_FONT_COLOR_RED
+            << "player connect to "<< host<< ":"<< port<< " failed, "<< (is_closing_? "is closing": "has not owner")<< std::endl;
         return -1;
     }
 

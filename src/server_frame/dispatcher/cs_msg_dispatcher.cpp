@@ -224,6 +224,7 @@ int32_t cs_msg_dispatcher::send_kickoff(uint64_t bus_id, uint64_t session_id, in
 
     ::atframe::gw::ss_msg msg;
     msg.init(ATFRAME_GW_CMD_SESSION_KICKOFF, session_id);
+    msg.head.error_code = reason;
 
     std::stringstream ss;
     msgpack::pack(ss, msg);
