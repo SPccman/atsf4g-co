@@ -11,6 +11,7 @@
 #include <cstddef>
 
 #include <google/protobuf/message.h>
+#include <google/protobuf/text_format.h>
 
 /**
  * @brief 返回易读数据
@@ -19,7 +20,5 @@
  * @param ident 缩进层级
  */
 const char* protobuf_mini_dumper_get_readable(const ::google::protobuf::Message& msg);
-
-size_t protobuf_mini_dumper_dump_readable(const ::google::protobuf::Message& msg, char* buf, size_t bufsz, int ident);
 
 #endif //_UTILITY_PROTOBUF_MINI_DUMPER_H
