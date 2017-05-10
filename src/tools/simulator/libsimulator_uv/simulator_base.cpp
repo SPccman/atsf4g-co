@@ -4,13 +4,14 @@
 
 #include <signal.h>
 
-#include <std/foreach.h>
-#include <lock/lock_holder.h>
-#include <cli/cmd_option_phoenix.h>
-#include <time/time_utility.h>
-#include <common/string_oprs.h>
-#include <common/file_system.h>
 #include <cli/cmd_option.h>
+#include <cli/cmd_option_phoenix.h>
+#include <common/file_system.h>
+#include <common/string_oprs.h>
+#include <lock/lock_holder.h>
+#include <std/foreach.h>
+#include <time/time_utility.h>
+
 
 #include "simulator_active.h"
 
