@@ -15,12 +15,17 @@ DEVELOPER_ROOT=$(xcode-select -print-path);
 SRC_DIR="$PWD";
 MBEDTLS_ROOT="" ;
 OPENSSL_ROOT="" ;
+BUILD_TYPE="RelWithDebInfo" ;
+OTHER_CFLAGS="-fPIC" ;
 
 # ======================= options ======================= 
-while getopts "a:d:hm:o:r:s:-" OPTION; do
+while getopts "a:b:d:hi:m:o:r:s:-" OPTION; do
     case $OPTION in
         a)
             ARCHS="$OPTARG";
+        ;;
+        b)
+            BUILD_TYPE="$OPTARG";
         ;;
         d)
             DEVELOPER_ROOT="$OPTARG";
@@ -29,13 +34,22 @@ while getopts "a:d:hm:o:r:s:-" OPTION; do
             echo "usage: $0 [options] -r SOURCE_DIR [-- [cmake options]]";
             echo "options:";
             echo "-a [archs]                    which arch need to built, multiple values must be split by space(default: $ARCHS)";
+            echo "-b [build type]               build type(default: $BUILD_TYPE, available: Debug, Release, RelWithDebInfo, MinSizeRel)";
             echo "-d [developer root directory] developer root directory, we use xcode-select -print-path to find default value.(default: $DEVELOPER_ROOT)";
+            echo "-h                            help message.";
+            echo "-i [option]                   enable bitcode support(available: off, all, bitcode, marker)";
             echo "-s [sdk version]              sdk version, we use xcrun -sdk iphoneos --show-sdk-version to find default value.(default: $SDKVERSION)";
             echo "-r [source dir]               root directory of this library";
             echo "-o [openssl root directory]   openssl root directory, which has [$ARCHS]/include and [$ARCHS]/lib";
             echo "-m [mbedtls root directory]   mbedtls root directory, which has [$ARCHS]/include and [$ARCHS]/lib";
-            echo "-h                            help message.";
             exit 0;
+        ;;
+        i)
+            if [ ! -z "$OPTARG" ]; then
+                OTHER_CFLAGS="$OTHER_CFLAGS -fembed-bitcode=$OPTARG";
+            else
+                OTHER_CFLAGS="$OTHER_CFLAGS -fembed-bitcode";
+            fi
         ;;
         o)
             OPENSSL_ROOT="$OPTARG";
@@ -107,7 +121,7 @@ for ARCH in ${ARCHS}; do
     fi
 
     # add -DCMAKE_OSX_DEPLOYMENT_TARGET=7.1 to specify the min SDK version
-    cmake "$SRC_DIR" -DCMAKE_OSX_SYSROOT=$SDKROOT -DCMAKE_SYSROOT=$SDKROOT -DCMAKE_OSX_ARCHITECTURES=$ARCH $EXT_OPTIONS "$@";
+    cmake "$SRC_DIR" -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_OSX_SYSROOT=$SDKROOT -DCMAKE_SYSROOT=$SDKROOT -DCMAKE_OSX_ARCHITECTURES=$ARCH -DCMAKE_CXX_FLAGS="$OTHER_CFLAGS" -DCMAKE_C_FLAGS="$OTHER_CFLAGS" $EXT_OPTIONS "$@";
     cmake --build . ;
 done
 
